@@ -1,25 +1,47 @@
 // Import react components
 import * as React from 'react';
 import {useEffect, useState} from 'react';
-import {Dimmer, Loader, SegmentGroup} from "semantic-ui-react";
-// sia & skynet ecosystem
-import {genKeyPairFromSeed, SkynetClient} from "skynet-js";
-import {ContentRecordDAC} from "@skynethq/content-record-library";
+import {Button, Dimmer, Loader, SegmentGroup} from "semantic-ui-react";
 // custom
 import './App.css';
 import IdeaSharedListSegment from "./components/idea-shared-list-segment";
 import FooterSegment from "./components/footer-segment";
 import MemberSegment from "./components/member-segment";
 import HeaderSegment from "./components/header-segment";
+import {UserProfileDAC} from "@skynethub/userprofile-library";
+
+// redux
+import {connect} from 'react-redux';
+import * as ActionTypes from "./store/action-types";
+import {
+    contentRecord, isLocalhost,
+    MYSKY_LIKES_FILE_PATH, SKAPP_DATA_DOMAIN,
+    SKAPP_DATA_KEY, skynetClient,
+    userProfile
+} from "./utils/skynet-utils";
+import {
+    SET_IS_LOGGED_IN,
+    SET_MYSKY_INSTANCE,
+    SET_MYSKY_USER_PROPOSALS_LIKED,
+    SET_MYSKY_USER_PUBLIC_KEY
+} from "./store/action-types";
+import {
+    readJsonFromMySky, readJsonFromSkyDB,
 
 
-// Comment this line out in order to get debug logs.
-// console.debug = function () {}
+} from "./utils/skynet-ops";
 
-
+/*
 // Determine if we running on local machine.
 const isLocalhost = window.location.hostname === 'localhost';
 console.debug(`Running on Localhost: ${isLocalhost}`);
+
+
+// Comment this line out in order to get debug logs.
+if (!isLocalhost) {
+    console.debug = function () {
+    }
+}
 
 
 // We'll define a portal to allow for developing on localhost.
@@ -32,60 +54,62 @@ const skynetClient = new SkynetClient(skynetPortal);
 const SKAPP_SECRET = "sup3rs3cr3t";
 
 
-const SKAPP_DATA_KEY = isLocalhost ?  "howabouts-dev" : "howabouts-prod"
-const SKAPP_DATA_DOMAIN = isLocalhost ? "how-about-skapp-dev" : "how-about-skapp-prod";
+const SKAPP_DATA_KEY = isLocalhost ? "howabouts-dev-release-candidate-r42" : "howabouts-prod-beta-r42"
+const SKAPP_DATA_DOMAIN = isLocalhost ? "how-about-skapp-dev-release-candidate-r42" : "how-about-skapp-prod-beta-r42";
+const SKAPP_DATA_KEY_COMMENTS = isLocalhost ? "howabouts-dev-comment-release-candidate-r42" : "howabouts-prod-comments-beta-r42"
 const MYSKY_LIKES_FILE_PATH = SKAPP_DATA_DOMAIN + "/mysky-likes";
 const MYSKY_PROPOSALS_FILE_PATH = SKAPP_DATA_DOMAIN + "/mysky-proposals";
 
 
 // Used to call method against the Content Record DAC's API.
 const contentRecord = new ContentRecordDAC();
-
+// Used to call method against the User Profile DAC's API.
+const userProfile = new UserProfileDAC();
+*/
 
 // Actual app.
-function App() {
-    // Define reused constants.
-    const SKAPP_PRIVATE_KEY = genKeyPairFromSeed(SKAPP_SECRET).privateKey;
-    const SKAPP_PUBLIC_KEY = genKeyPairFromSeed(SKAPP_SECRET).publicKey;
-    const ERROR_MSG = "***Something went wrong here :(***";
+function App({mySkyInstance,  mySkyUserPublicKey, isLoggedIn, proposalRecords, mySkyUserProposalsLiked, dispatch}) {
 
+    const [isLoading, setIsLoading] = useState(false);
 
-    // Define app state helpers.
-    const [mySky, setMySky] = useState();
-    const [userID, setUserID] = useState();
-    const [loggedIn, setLoggedIn] = useState();
-    const [loading, setLoading] = useState(false);
-    const [displaySuccess, setDisplaySuccess] = useState(false);
-    const [idea, setIdea] = useState();
-    const [ideaHeadline, setIdeaHeadline] = useState();
-    const [howAboutData, setHowAboutData] = useState({howabouts: []});
-    const [howAboutsLikedByMember, setHowAboutsLikedByMember] = useState([]);
+    // On changes to logged in state we use the effect to load the likes of the member.
+    useEffect(() => {
+        async function prepareLikes() {
+            const likes = await readJsonFromMySky(mySkyInstance, MYSKY_LIKES_FILE_PATH);
+            dispatch({type: SET_MYSKY_USER_PROPOSALS_LIKED, payload: likes.data ?? []});
+        }
 
+        if (isLoggedIn && mySkyInstance) {
+            prepareLikes();
+        }
+    }, [isLoggedIn, mySkyInstance]);
 
     // On initial run, start initialization of MySky.
     useEffect(() => {
         // define async setup function
         async function initMySky() {
-            setLoading(true);
             try {
+                setIsLoading(true);
                 // Load invisible iframe and define app's data domain need for permission to write.
-                const mySky = await skynetClient.loadMySky(SKAPP_DATA_DOMAIN, { dev: true /*isLocalhost*/});
+                const mySky = await skynetClient.loadMySky(SKAPP_DATA_DOMAIN, {dev: isLocalhost, debug: false /*TODO isLocalhost*/});
                 // Load necessary DACs and permissions.
-                await mySky.loadDacs(contentRecord);
+                await mySky.loadDacs(contentRecord, userProfile);
                 // Check if the user is already logged in with permissions.
                 const loggedIn = await mySky.checkLogin();
                 console.debug(loggedIn ? `Already logged into MySky;` : `MySky requires login;`);
                 // Set react state for login status and to access mySky in rest of app.
-                setMySky(mySky);
-                setLoggedIn(loggedIn);
+                // setMySky(mySky);
+                dispatch({ type: SET_IS_LOGGED_IN, payload: loggedIn});
+                dispatch({ type: SET_MYSKY_INSTANCE, payload: mySky });
+                // setLoggedIn(loggedIn);
                 if (loggedIn) {
-                    setUserID(await mySky.userID());
-                    await handleLoadMySkyMemberLikes();
+                    const userID = await mySky.userID();
+                    dispatch({ type: SET_MYSKY_USER_PUBLIC_KEY, payload: userID});
                 }
             } catch (e) {
                 console.error(`Error while initializing MySky: ${e.message}`);
             } finally {
-                setLoading(false);
+                setIsLoading(false);
             }
         }
 
@@ -95,31 +119,30 @@ function App() {
 
             // Load related data this skapp
             try {
-                setLoading(true);
-                readSkappDataFromSkyDB(SKAPP_DATA_KEY).then((res) => {
-                    if (res.data) {
-                        setHowAboutData(res.data);
-                    } else {
-                        setHowAboutData({howabouts: []});
+                setIsLoading(true);
+                readJsonFromSkyDB(SKAPP_DATA_KEY).then((res) => {
+                    if (res?.data) {
+                        dispatch({type: ActionTypes.SET_PROPOSAL_RECORDS, payload: res.data})
                     }
                 });
             } finally {
-                setLoading(false);
+                setIsLoading(false);
             }
         });
 
         // Specify how to clean up after this effect:
         return function cleanup() {
             async function destroyMySky() {
-                setLoading(true);
+                setIsLoading(true);
                 try {
-                    if (mySky) {
-                        await mySky.destroy();
+                    if (mySkyInstance) {
+                        await mySkyInstance.destroy();
+                        dispatch({ type: SET_MYSKY_INSTANCE, payload: null});
                     }
                 } catch (e) {
                     console.error(`Error while destroying MySky: ${e.message}`);
                 } finally {
-                    setLoading(false);
+                    setIsLoading(false);
                 }
             }
 
@@ -127,46 +150,26 @@ function App() {
                 console.debug('MySky has been destroyed.');
             });
         };
-    }, [mySky]);
+    }, []);
 
 
     // Use this to print debug information.
-    const handleDebug = async (event) => {
-        event.preventDefault();
-        setLoading(true);
-        try {
-            console.debug(`portal=${await skynetClient.portalUrl()}`);
-            setLoading(false);
-        } catch (e) {
-            throw new Error(e.message);
-        } finally {
-            setLoading(false);
-        }
-    }
+    const handleDebug = async () => {
 
-
-    // Returns all shared proposals the user has liked as skylink array.
-    async function handleLoadMySkyMemberLikes() {
-        setLoading(true);
-        try {
-            if (mySky) {
-                mySky.getJSON(MYSKY_LIKES_FILE_PATH).then((res) => {
-                    if (res.data) {
-                        setHowAboutsLikedByMember(res.data);
-                    }
-                    console.debug(`Loaded like data: res=${JSON.stringify(res)}`);
-                    return res;
-                });
-            }
-        } catch (e) {
-            console.error(`Error while loading member likes; status=${e.message}`);
-        } finally {
-            setLoading(false);
-        }
+        console.debug(`Debugging Outputs:
+            ${await skynetClient.portalUrl()}
+            isLoading=${isLoading}
+            isLoggedIn=${isLoggedIn}
+            dispatchIsNotNull=${dispatch !== null}
+            mySkyInstance=${mySkyInstance}
+            mySkyUserPublicKey=${mySkyUserPublicKey}
+            mySkyUserProposalsLiked=${JSON.stringify(mySkyUserProposalsLiked)}
+            proposalRecords=${JSON.stringify(proposalRecords)}`);
     }
 
 
     // Handle a user's login action.
+    /*
     async function handleMySkyLogin(event) {
         event.preventDefault();
         setLoading(true);
@@ -174,6 +177,7 @@ function App() {
             // Try login again, opening popup. Returns true if successful.
             const status = await mySky.requestLoginAccess();
             // Apply react status.
+            dispatch({ type: SET_IS_LOGGED_IN, payload: status});
             setLoggedIn(status);
             if (status) {
                 // Apply react state.
@@ -182,7 +186,7 @@ function App() {
                     setUserID(res);
                 });
                 // Load the likes of the user.
-                await handleLoadMySkyMemberLikes();
+                await handleLoadMySkyMemberLikes(mySky);
             } else {
                 console.error(`Error while log into MySky; status=${status}`);
             }
@@ -190,9 +194,11 @@ function App() {
             setLoading(false);
         }
     }
+     */
 
 
     // Handle a user's logout action.
+    /*
     async function handleMySkyLogout(event) {
         event.preventDefault();
         setLoading(true);
@@ -200,11 +206,15 @@ function App() {
             console.debug('handleMySkyLogout()');
             await mySky.logout();
             // Apply react state.
+
+            dispatch({ type: SET_IS_LOGGED_IN, payload: false});
             setLoggedIn(false);
             setUserID('');
             setLoading(false);
             setIdea('');
             setIdeaHeadline('');
+            setFileSkylink('');
+            setFile('');
             setHowAboutsLikedByMember([]);
         } catch (e) {
             console.error(`Error while logging out from MySky: ${e.message}`);
@@ -212,27 +222,41 @@ function App() {
             setLoading(false);
         }
     }
+     */
 
 
     // Handle a user's proposal save action.
-    async function handleSetProposal (event) {
+    /* TODO marked to delete
+    async function handleSetProposal(event, headlineText, detailText, imageFile) {
         event.preventDefault();
         setLoading(true);
         try {
-            const proposal = {text: idea ?? ERROR_MSG};
-            await handleMySkyWrite(MYSKY_PROPOSALS_FILE_PATH, proposal).then((res) => {
-                saveUserHowAboutToSkapp(res.skylink, 0, ideaHeadline).then((res) => {
+            // When provided, upload image of proposal.
+            let imageSkylinkUrl = null;
+            if (imageFile) {
+                console.debug(`Proposal has an image to be uploaded: ${JSON.stringify(imageFile)}`);
+                const {skylink} = await skynetClient.uploadFile(imageFile);
+                // skylinks start with \`sia://\` and don't specify a portal URL
+                // we can generate URLs for our current portal though.
+                imageSkylinkUrl = await skynetClient.getSkylinkUrl(skylink);
+                console.debug(`Image uploaded to Skynet: ${JSON.stringify(imageSkylinkUrl)}`);
+            }
+
+            const proposal = {
+                text: detailText ?? ERROR_MSG,
+                imageSkylink: imageSkylinkUrl ?? null
+            };
+            await writeJsonToMySky(mySky, MYSKY_PROPOSALS_FILE_PATH, proposal).then((res) => {
+                saveUserHowAboutToSkapp(res.dataLink, null, 0, headlineText).then((res) => {
                     console.debug(`Saved how about to skapp data: ${JSON.stringify(res)}`);
                 });
-
-                // Tell contentRecord that we created a new proposal
-                contentRecord.recordNewContent({
-                    skylink: res.skylink
-                });
+                recordNew(res.dataLink);
 
                 // Reset idea and headline states
                 setIdea('');
                 setIdeaHeadline('');
+                setFile('');
+                setFileSkylink('');
             });
         } catch (error) {
             console.error(`Error while handling set proposal: ${error.message}`);
@@ -241,8 +265,9 @@ function App() {
             setLoading(false);
         }
     }
+    */
 
-
+    /*
     // Handle a user's write action to MySky.
     async function handleMySkyWrite(filePathToWriteTo, toWriteJson) {
         try {
@@ -256,8 +281,9 @@ function App() {
             console.error(`Error while writing data to MySky -> setJSON: ${e.message}`);
         }
     }
+     */
 
-
+    /* TODO marked to delete
     // Reads skapp related data from sky db.
     async function readSkappDataFromSkyDB(dataKey) {
         try {
@@ -269,8 +295,9 @@ function App() {
             console.error(`Error reading skapp data from SkyDB: ${e.message}`);
         }
     }
+    */
 
-
+    /* TODO marked to delete
     // Writes skapp related data to skydb.
     async function writeSkappDataToSkyDB(dataKey, toWriteJson) {
         try {
@@ -282,33 +309,38 @@ function App() {
             console.error(`Error writing skapp data to SkyDB: ${e.message}`);
         }
     }
+     */
 
 
     // Saves a user's how about to skydb.
-    async function saveUserHowAboutToSkapp(howAboutSkylink, likes, header) {
+    /* TODO marked to delete
+    async function saveUserHowAboutToSkapp(howAboutSkylink, commentsSkylink, likes, header) {
         try {
             const howAboutJson = {
                 skylink: howAboutSkylink,
+                commentsSkylink: commentsSkylink,
                 likes: likes,
                 metadata: {
                     header: header ?? ERROR_MSG,
-                    creator: generateDynamicName(),
-                    creationDate: new Date().toDateString()
+                    creator: userID ?? generateDynamicName(),
+                    creationDate: new Date().toUTCString()
                 }
             };
-            const index = howAboutData.howabouts.findIndex(h => h.skylink === howAboutSkylink);
+            const index = proposalRecords.howabouts.findIndex(h => h.skylink === howAboutSkylink);
             if (index >= 0) {
-                const old = howAboutData.howabouts[index];
+                const old = proposalRecords.howabouts[index];
                 howAboutJson.metadata.creationDate = old.metadata.creationDate;
                 howAboutJson.metadata.creator = old.metadata.creator;
-                howAboutData.howabouts[index] = howAboutJson;
-                setHowAboutData(howAboutData);
+                howAboutJson.likes = likes ? likes : old.likes;
+                howAboutJson.commentsSkylink = commentsSkylink ? commentsSkylink : old.commentsSkylink;
+                proposalRecords.howabouts[index] = howAboutJson;
+                dispatch({type: ActionTypes.SET_PROPOSAL_RECORDS, payload: proposalRecords});
             } else {
-                howAboutData.howabouts.push(howAboutJson);
-                setHowAboutData(howAboutData);
+                proposalRecords.howabouts.push(howAboutJson);
+                dispatch({type: ActionTypes.SET_PROPOSAL_RECORDS, payload: proposalRecords});
             }
 
-            return await writeSkappDataToSkyDB(SKAPP_DATA_KEY, howAboutData).then((res) => {
+            return await writeJsonToSkyDB(SKAPP_DATA_KEY, proposalRecords).then((res) => {
                 return res;
             });
         } catch (e) {
@@ -316,35 +348,33 @@ function App() {
         }
     }
 
+     */
+
 
     // Lazy loads the content of a shared proposal directly from a skylink.
+    /*
     async function handleLazyLoad(skylink) {
-        const {data} = await skynetClient.getFileContent(skylink);
+        // const {data} = await skynetClient.getFileContent(skylink);
+        const data = await readFileContentFromSkylink(skylink);
+        console.debug(`${App.name}.handleLazyLoad() -> data=${JSON.stringify(data)}`);
         // Tell contentRecord that we requested the details of a proposal
-        await contentRecord.recordInteraction({
-            skylink: skylink,
-            metadata: {action: 'readMoreAction'}
-        });
-        return data._data.text;
+        // TODO move to skynet-ops.js
+        await recordInteraction(skylink, 'readMoreAction'); // TODO move to centralized const file
+        return data._data;
     }
+    */
 
 
-    // Returns a dynamic name, e.g. for a member.
-    function generateDynamicName() {
-        const names = ["David", "Chris", "Steve", "Matt", "Manasi", "PJ", "Marcin", "Karol", "Ivaylo", "Filip", "Nicole", "Daniel"]
-        const dynamicName = names[Math.floor(Math.random() * names.length)];
-        const suffix = Math.random().toString(16).substr(2, 8);
-        console.debug(`Generated dynamic name: ${dynamicName}; Suffix: ${suffix}`);
-        return dynamicName.concat("-", suffix);
-    }
+
 
 
     // Handles a user's like/unlike action.
+    /*
     async function handleLikeAction(event, likedHowabout, header) {
         setLoading(true);
         try {
             console.debug(`App.handleLikeAction: likedHowAbout=${JSON.stringify(likedHowabout)}`);
-            console.debug(`App.handleLikeAction: currentSkappData=${JSON.stringify(howAboutData)}`);
+            console.debug(`App.handleLikeAction: currentSkappData=${JSON.stringify(proposalRecords)}`);
             console.debug(`App.handleLikeAction: howAboutsLikedByMember=${JSON.stringify(howAboutsLikedByMember)}`);
 
             // Determine if the user has liked the first time or unlike a previous one.
@@ -356,28 +386,26 @@ function App() {
                 // User
                 const likedContent = {skylink: likedHowabout.skylink};
                 howAboutsLikedByMember.push(likedContent);
-                await handleMySkyWrite(MYSKY_LIKES_FILE_PATH, howAboutsLikedByMember);
+                await writeJsonToMySky(mySky, MYSKY_LIKES_FILE_PATH, howAboutsLikedByMember);
                 // Skapp
                 const modifiedLikes = likedHowabout.likes + 1;
-                await saveUserHowAboutToSkapp(likedHowabout.skylink, modifiedLikes, header);
+                await saveUserHowAboutToSkapp(likedHowabout.skylink, null, modifiedLikes, header);
             } else {
                 // Remove user's like from MySky and decrease like counter on skapp's SkyDB.
                 console.debug(`App.handleLikeAction: removing like from skapp's SkyDB and MySky.`);
                 // User
                 const filtered = howAboutsLikedByMember.filter(h => h.skylink !== likedHowabout.skylink);
-                await handleMySkyWrite(MYSKY_LIKES_FILE_PATH, filtered).then(() => {
+                await writeJsonToMySky(mySky, MYSKY_LIKES_FILE_PATH, filtered).then(() => {
+                    dispatch({type: ActionTypes.SET_MYSKY_USER_PROPOSALS_LIKED, payload: filtered})
                     setHowAboutsLikedByMember(filtered);
                 });
 
                 // Skapp
                 const modifiedLikes = likedHowabout.likes - 1;
-                await saveUserHowAboutToSkapp(likedHowabout.skylink, modifiedLikes, header);
+                await saveUserHowAboutToSkapp(likedHowabout.skylink, null, modifiedLikes, header);
             }
             // Tell contentRecord that we updated the likes
-            await contentRecord.recordInteraction({
-                skylink: likedHowabout.skylink,
-                metadata: {action: 'updatedLikes'}
-            });
+            await recordInteraction(likedHowabout.skylink, 'updatedLikesAction'); // TODO move to centralized const file.
         } catch (e) {
             console.error(`Error while handling like: ${e.message}`);
         } finally {
@@ -385,54 +413,117 @@ function App() {
         }
     }
 
+     */
 
-    // Define args to be passed into forms.
-    const formProps = {
-        idea,
-        ideaHeadline,
-        mySky,
-        loggedIn,
-        userID,
-        loading,
-        displaySuccess,
-        howAboutData,
-        howAboutsLikedByMember,
-        setMySky,
-        setLoggedIn,
-        setDisplaySuccess,
-        setIdea,
-        setIdeaHeadline,
-        setHowAboutData,
-        setHowAboutsLikedByMember,
 
-        handleDebug,
-        handleSetProposal,
-        handleMySkyLogin,
-        handleMySkyLogout,
+    // Handles a user's comment action.
+    /* TODO marked to delete
+    async function handleCommentAction(event, comments) {
+        try {
+            setLoading(true);
+            console.debug(`App.handleCommentAction: comments=${JSON.stringify(comments)}`);
+            const res = await writeJsonToSkyDB(SKAPP_DATA_KEY_COMMENTS, comments);
+            // Tell contentRecord that we commented a proposal
+            await recordInteraction(res.dataLink, 'commentedAction'); // TODO move to centralized const file.
+            return res;
+        } catch (e) {
+            console.error(`Error while handling comment: ${e.message}`);
+        } finally {
+            setLoading(false);
+        }
+    }
 
-        handleLazyLoad,
-        handleLikeAction,
-        handleLoadMySkyMemberLikes
+     */
+
+
+    // Props to pass to the components.
+    const propsSegmentMemberArea = {
+        // variables
+        // proposalRecords,
+        // ideaHeadline,
+        // setIdeaHeadline,
+        // idea,
+        // setIdea,
+        // fileSkylink,
+        // setFileSkylink,
+        // file,
+        // setFile,
+        // loading,
+        // loggedIn,
+
+        // mysky and dacs
+        // userID,
+        // mySky,
+        // contentRecord,
+        // userProfile,
+
+        // SKAPP_DATA_KEY_COMMENTS,
+
+        // methods
+        // handleMySkyLogin,
+        // handleMySkyLogout,
+        // handleSetProposal,
+        // handleLazyLoad,
+        // handleCommentAction,
+        // saveUserHowAboutToSkapp
     };
+    const propsSegmentShared = {
+        // variables
+        // proposalRecords,
+        // howAboutsLikedByMember,
+        // loggedIn,
+        // loading,
 
+        // mysky and dacs
+        // userID,
+        // mySky,
+        // contentRecord,
+        // userProfile,
+
+
+        // SKAPP_DATA_KEY_COMMENTS,
+
+        // methods
+        // handleLikeAction,
+        // handleLazyLoad,
+        // handleCommentAction,
+        // saveUserHowAboutToSkapp
+    }
 
     // This is the actual layout; not a beauty but it's something :)
     return (
-        <div
-            className="bg-background min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full">
-                <SegmentGroup>
-                    <HeaderSegment {...formProps}/>
-                    <Dimmer active={loading}>
-                        <Loader indeterminate={true} active={loading}>Working...</Loader>
-                    </Dimmer>
-                    <MemberSegment  {...formProps}/>
-                    <IdeaSharedListSegment {...formProps}/>
-                    <FooterSegment {...formProps}/>
-                </SegmentGroup>
-            </div>
-        </div>
+        <SegmentGroup>
+            {isLocalhost &&
+            <Button content={'Debug Outputs'} onClick={() => {
+                handleDebug()
+            }}/>
+            }
+            <HeaderSegment/>
+            <Dimmer page active={isLoading}>
+                <Loader indeterminate={true} active={isLoading} size={"large"}>Working...</Loader>
+            </Dimmer>
+            <MemberSegment />
+            <IdeaSharedListSegment />
+            <FooterSegment/>
+        </SegmentGroup>
     );
 }
 
-export default App;
+const mapStateToProps = state => ({
+    proposalRecords: state.proposalRecords,
+    mySkyUserPublicKey: state.mySkyUserPublicKey,
+    mySkyInstance: state.mySkyInstance,
+    isLoggedIn: state.isLoggedIn,
+    mySkyUserProposalsLiked: state.mySkyUserProposalsLiked,
+});
+
+const mapDispatchToProps = dispatch => {
+    return {
+        dispatch
+    }
+};
+
+export default connect(
+    mapStateToProps,
+    mapDispatchToProps
+)(App);

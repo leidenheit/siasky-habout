@@ -1,12 +1,12 @@
 import {Header, Search, Segment} from "semantic-ui-react";
-import * as React from "react";
-import {useState} from "react";
+import {connect} from "react-redux";
+import React from "react";
+import ModalDialogFresh from "./modal-dialog-fresh";
 
-const SearchSegment = (props) => {
+const SearchSegment = ({isLoggedIn, proposalRecords}) => {
 
     // Reducer for the actual search.
     function resultReducer(state, action) {
-        // console.debug(`Search; Reducer called; state=${JSON.stringify(state)}; action=${JSON.stringify(action)}`);
         switch (action.type) {
             case 'CLEAN_QUERY':
                 return initialState
@@ -21,10 +21,8 @@ const SearchSegment = (props) => {
         }
     }
 
-
     // helper methods
     const _ = require("lodash");
-
 
     // States
     const initialState = {
@@ -35,27 +33,36 @@ const SearchSegment = (props) => {
     const [state, dispatch] = React.useReducer(resultReducer, initialState)
     const {loading, results, value} = state
     const timeoutRef = React.useRef()
-    const [searchResultElement, setSearchResultElement] = useState();
-    const [searchableItems, setSearchableItems] = useState(() => props.howAboutData.howabouts);
-    React.useEffect(() => {
-        setSearchableItems(prepareSearchElements(props.howAboutData.howabouts));
-    }, [props.howAboutData.howabouts])
+    const [searchResultElement, setSearchResultElement] = React.useState();
+    const [searchableItems, setSearchableItems] = React.useState(() => proposalRecords);
+    const [showModal, setShowModal] = React.useState(false);
 
+    React.useEffect(() => {
+        /*
+        if (isLoggedIn) {
+            setSearchableItems(prepareSearchElements(proposalRecords.howabouts));
+        }
+         */
+        setSearchableItems(prepareSearchElements(proposalRecords.howabouts));
+    }, [proposalRecords])
 
     // Returns a list of searchable proposals compliant to the format of the search component.
     function prepareSearchElements(searchables) {
         const tmp = [];
-        for (let el of searchables) {
-            const elJson = {
-                title: el?.metadata?.header ?? '***NOT_PROVIDED***',
-                description: el?.metadata?.creationDate ?? '***NOT_PROVIDED***',
-                skylink: el?.skylink ?? '***NOT_PROVIDED***',
-                likes: el?.likes ?? '***NOT_PROVIDED***',
-                header: el?.metadata?.header ?? '***NOT_PROVIDED***',
-                creator: el?.metadata?.creator ?? '***NOT_PROVIDED***',
-                creationdate: el?.metadata?.creationDate ?? '***NOT_PROVIDED***'
+        if (searchables) {
+            for (let el of searchables) {
+                const elJson = {
+                    title: el?.metadata?.header ?? 'NOT_PROVIDED',
+                    description: el?.metadata?.creationDate ?? 'NOT_PROVIDED',
+                    skylink: el?.skylink ?? 'NOT_PROVIDED',
+                    commentsSkylink: el?.commentsSkylink ?? 'NOT_PROVIDED',
+                    likes: el?.likes ?? 'NOT_PROVIDED',
+                    header: el?.metadata?.header ?? 'NOT_PROVIDED',
+                    creator: el?.metadata?.creator ?? 'NOT_PROVIDED',
+                    creationdate: el?.metadata?.creationDate ?? 'NOT_PROVIDED'
+                }
+                tmp.push(elJson);
             }
-            tmp.push(elJson);
         }
         return tmp;
     }
@@ -92,7 +99,7 @@ const SearchSegment = (props) => {
                 results: _.filter(searchableItems, isMatch)
             })
         }, 750)
-    }, [searchableItems]);
+    }, [searchableItems, _]);
 
 
     // Clear timeout
@@ -102,33 +109,73 @@ const SearchSegment = (props) => {
         }
     }, [])
 
+    // Handle search result item click
+    const handleOnSearchItemClick = (item) => {
+        console.debug(`SearchSegment.handleOnSearchItemClick(); data=${JSON.stringify(item.result)}`);
+        dispatch({type: 'UPDATE_SELECTION', selection: item.result.header});
+        setSearchResultElement(item.result);
+        setShowModal(true);
+    }
+
+
+    const onDialogClose = React.useCallback((requiresReload) => {
+        console.debug(`${SearchSegment.name}: Modal closed -> reloading=${requiresReload}`);
+        setShowModal(false);
+        setSearchResultElement(null);
+        dispatch({type: 'CLEAN_QUERY'});
+
+        // FIXME: update proposals elegantly
+        if (requiresReload) {
+            window.location.reload(true);
+        }
+    }, [proposalRecords])
+
 
     // Render
     return (
         <>
             <Segment>
-                <Header size='small'>Lookup Ideas (experimental)</Header>
-                You can check if the idea you have in mind was already shared.
-                <br/>
-                In addition you can click on a result item to see a little more details.
-                <br/>
-                <br/>
                 <Search
                     loading={loading}
                     onResultSelect={(e, data) => {
-                        dispatch({type: 'UPDATE_SELECTION', selection: data.result.header});
-                        console.debug(`Search; result was clicked; data=${JSON.stringify(data)}`);
-                        alert(`${data.result.header}\n\nBy ${data.result.creator} at ${data.result.creationdate}\n\nLikes: ${data.result.likes}`)
-                        setSearchResultElement(data.result);
+                        handleOnSearchItemClick(data)
                     }}
+                    fluid={true}
                     onSearchChange={handleSearchChange}
                     results={results}
                     value={value}
-                    placeholder={'Enter a buzz word...'}
+                    maxLength={100}
+                    placeholder={'Search Ideas'}
                 />
             </Segment>
-        </>
-    );
-}
 
-export default SearchSegment;
+            <ModalDialogFresh
+                showDialog={showModal}
+                hideTriggerButton={true}
+                onDialogCloseAction={onDialogClose}
+                proposalSkylink={searchResultElement?.skylink}
+                proposalCommentsSkylink={searchResultElement?.commentsSkylink}
+                proposalHeader={searchResultElement?.header}
+                proposalCreationDate={searchResultElement?.creationdate}
+                proposalCreator={searchResultElement?.creator}/>
+        </>
+    )
+};
+
+const mapStateToProps = state => ({
+    isLoggedIn: state.isLoggedIn,
+    proposalRecords: state.proposalRecords,
+    mySkyUserPublicKey: state.mySkyUserPublicKey,
+    mySkyInstance: state.mySkyInstance
+});
+
+const mapDispatchToProps = dispatch => {
+    return {
+        dispatch
+    }
+};
+
+export default connect(
+    mapStateToProps,
+    mapDispatchToProps
+)(SearchSegment);

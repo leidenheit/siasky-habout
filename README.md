@@ -10,6 +10,7 @@ Share and Rate Skapp Ideas - The Decentralized Way
 
 ### Demo
 * [Video](https://siasky.net/AABERgEJA7DggICNU_SqNjXkfru1jU1Gt76iNkNso_NkBA)
+* [Skynet App](https://tirthahalli.hns.siasky.net/)
 
 ### Inspired By
 * [note-to-self](https://github.com/kwypchlo/note-to-self)

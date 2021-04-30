@@ -1,31 +1,26 @@
-import {Button, Container, Divider, Form, Header, SegmentGroup} from "semantic-ui-react";
+import {Button, Container, Divider, Header, Image, Label, Segment, SegmentGroup} from "semantic-ui-react";
 import * as React from "react";
 import IdeaSubmitSegment from "./idea-submit-segment";
-import SearchSegment from "./search-segment";
+import {connect} from "react-redux";
+import {handleMySkyLogin, handleMySkyLogout, readProfileFromPublicKey} from "../utils/skynet-ops";
 
-const MemberSegment = (props) => {
+const MemberSegment = ({mySkyInstance, mySkyUserPublicKey, isLoggedIn, dispatch}) => {
 
     return (
         <>
             <Container textAlign='left' floated='right'>
-                <Form>
-                    {props.loggedIn
-                        ? <Button onClick={props.handleMySkyLogout}>Logout</Button>
-                        : <Button positive onClick={props.handleMySkyLogin}>Login</Button>
+                <SegmentGroup size={"tiny"}>
+                    <Segment>
+                        {isLoggedIn
+                            ? <Button onClick={async () => {await handleMySkyLogout(mySkyInstance, dispatch)}}>Logout from MySky</Button>
+                            : <Button positive onClick={async () => {await handleMySkyLogin(mySkyInstance, dispatch)}}>Login with MySky</Button>
+                        }
+                    </Segment>
+
+                    {isLoggedIn &&
+                        <IdeaSubmitSegment />
                     }
-                </Form>
-                {props.loggedIn &&
-                    <Divider horizontal>
-                        <Header size='large'>Member Area</Header>
-                    </Divider>
-                }
-                {props.loggedIn && <br/>}
-                {props.loggedIn &&
-                    <SegmentGroup>
-                        <SearchSegment {...props}/>
-                        <IdeaSubmitSegment {...props}/>
-                    </SegmentGroup>
-                }
+                </SegmentGroup>
             </Container>
             <br/>
             <br/>
@@ -33,4 +28,21 @@ const MemberSegment = (props) => {
     );
 };
 
-export default MemberSegment;
+
+const mapStateToProps = state => ({
+    isLoggedIn: state.isLoggedIn,
+    mySkyInstance: state.mySkyInstance,
+    mySkyUserPublicKey: state.mySkyUserPublicKey,
+});
+
+const mapDispatchToProps = dispatch => {
+    return {
+        dispatch
+    }
+};
+
+export default connect(
+    mapStateToProps,
+    mapDispatchToProps
+)
+(MemberSegment);

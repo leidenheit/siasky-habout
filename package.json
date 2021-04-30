@@ -5,16 +5,20 @@
   "homepage": ".",
   "dependencies": {
     "@skynethq/content-record-library": "0.2.1",
+    "@skynethub/userprofile-library": "0.1.8-beta",
     "@testing-library/jest-dom": "5.11.10",
     "@testing-library/react": "11.2.6",
     "@testing-library/user-event": "12.8.3",
     "lodash": "4.17.21",
     "react": "17.0.2",
     "react-dom": "17.0.2",
+    "react-dropzone": "11.3.1",
+    "react-redux": "^7.2.4",
     "react-scripts": "4.0.3",
+    "redux": "4.1.0",
     "semantic-ui-css": "2.4.1",
     "semantic-ui-react": "2.0.3",
-    "skynet-js": "4.0.2-beta",
+    "skynet-js": "4.0.5-beta",
     "web-vitals": "1.1.1"
   },
   "scripts": {

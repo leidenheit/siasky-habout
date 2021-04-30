@@ -1,135 +1,157 @@
-import * as React from "react";
-import {useEffect, useState} from "react";
 import {
     Button,
-    Container,
+    Container, Dimmer,
     Divider,
     Header,
     Image,
     Label,
-    List,
+    List, Loader,
     Pagination,
     Segment,
     SegmentGroup
 } from "semantic-ui-react";
 import imageSkynet from '../assets/skynet-logo.svg'
+import imageSia from '../assets/sia-logo.svg'
 import {generateUniqueID} from "web-vitals/dist/modules/lib/generateUniqueID";
-import ModalDialog from "./modal-dialog";
+import {connect} from "react-redux";
+import {handleLikeProposal} from "../utils/skynet-ops";
+import ModalDialogFresh from "./modal-dialog-fresh";
+import React from "react";
+import SearchSegment from "./search-segment";
 
-const IdeaSharedListSegment = (props) => {
+const IdeaSharedListSegment = ({
+                                   proposalRecords,
+                                   mySkyUserProposalsLiked,
+                                   isLoggedIn,
+                                   mySkyUserPublicKey,
+                                   mySkyInstance,
+                                   dispatch
+                               }) => {
 
     // helper methods
     const _ = require("lodash");
 
     // Given
-    const [sharedProposals, setSharedProposals] = useState(props.howAboutData.howabouts);
-    const [likedProposals, setLikedProposals] = useState(props.howAboutsLikedByMember);
-    const [isLoggedIn, setIsLoggedIn] = useState(props.loggedIn);
-
+    const [orderByMostPopular, setOrderByMostPopular] = React.useState(false);
+    const [isLoading, setIsLoading] = React.useState(false);
 
     // Pagination
-    const ITEMS_PER_PAGE = 5;
-    const [page, setPage] = useState(1);
-    const [itemsPerPage] = useState(ITEMS_PER_PAGE);
+    const ITEMS_PER_PAGE = 8;
+    const [page, setPage] = React.useState(1);
+    const [itemsPerPage] = React.useState(ITEMS_PER_PAGE);
     let setPageNum = (event, {activePage}) => {
         setPage(Math.ceil(activePage));
     }
 
-
-    // Apply react state.
-    useEffect(() => {
-        console.debug(`IdeaSharedListSegment: useEffect: howAbouts=${JSON.stringify(props.howAboutData.howabouts)}`);
-        setSharedProposals(props.howAboutData.howabouts);
-        setLikedProposals(props.howAboutsLikedByMember)
-        setIsLoggedIn(props.loggedIn);
-    }, [
-        props.howAboutData.howabouts,
-        props.howAboutsLikedByMember,
-        props.loggedIn
-    ]);
-
+    // Handle modal dialog close event.
+    const handleOnModalClose = React.useCallback((requiresReload) => {
+        // FIXME: update proposals elegantly
+        console.debug(`${IdeaSharedListSegment.name}: Modal closed -> reloading=${requiresReload}`);
+        if (requiresReload) {
+            window.location.reload(true);
+        }
+    }, [proposalRecords]);
 
     // Provide a single list to render with the information of both, every shared proposal and the likes of the user.
     let uiProposals = [];
-    for (const proposal of sharedProposals) {
-
-        const matchingProposalThatWasLiked = likedProposals.findIndex(likedByMemberProposal =>
-            likedByMemberProposal.skylink === proposal.skylink) >= 0;
-        if (matchingProposalThatWasLiked) {
-            console.debug(`Found a matching proposal the user liked before; skylink=${proposal.skylink}`);
+    if (proposalRecords?.howabouts) {
+        for (const proposal of proposalRecords?.howabouts) {
+            const matchingProposalThatWasLiked = mySkyUserProposalsLiked.findIndex(likedByMemberProposal =>
+                likedByMemberProposal.skylink === proposal.skylink) >= 0;
+            const uiProposal = {
+                id: generateUniqueID(),
+                skylink: proposal.skylink,
+                commentsSkylink: proposal.commentsSkylink ?? null,
+                likesCount: proposal.likes ?? "NOT_PROVIDED",
+                header: proposal.metadata?.header ?? "NOT_PROVIDED",
+                creator: proposal.metadata?.creator ?? "NOT_PROVIDED", // TODO consider retrieving userprofile here
+                creationDate: proposal.metadata?.creationDate ?? "NOT_PROVIDED",
+                likedByMember: matchingProposalThatWasLiked,
+                rawProposal: proposal,
+            };
+            uiProposals.push(uiProposal);
         }
-        const uiProposal = {
-            id: generateUniqueID(),
-            skylink: proposal.skylink,
-            likesCount: proposal.likes ?? "Likes not provided",
-            header: proposal.metadata?.header ?? "Header not provided",
-            creator: proposal.metadata?.creator ?? "Creator not provided",
-            creationDate: proposal.metadata?.creationDate ?? "CreationData not provided",
-            likedByMember: matchingProposalThatWasLiked,
-            rawProposal: proposal,
-        };
-        uiProposals.push(uiProposal);
     }
-
 
     // Dispatch a user's like action.
-    let handleClick = (event, raw, header) => {
-        props.handleLikeAction(event, raw, header);
+    let handleClick = async (event, raw, header) => {
+        try {
+            setIsLoading(true);
+            await handleLikeProposal(proposalRecords, mySkyUserProposalsLiked, raw, header, mySkyUserPublicKey, mySkyInstance, dispatch);
+        } finally {
+            setIsLoading(false);
+        }
     }
 
+    // Ordering
+    const orderProposals = (toOrderProposals) => {
+        if (orderByMostPopular) {
+            // most popular
+            return _.orderBy(toOrderProposals, [
+                function (item) {
+                    return item.likesCount;
+                }
+            ], ['desc']);
+        } else {
+            // most recent
+            return _.orderBy(toOrderProposals, [
+                function (item) {
+                    return new Date(item.creationDate);
+                },
+                function (item) {
+                    return item.likesCount;
+                }
+            ], ['desc', 'desc']);
+        }
+    }
 
     // Prepare items for rendering.
-    // TODO <Label size='mini'>friendly {sharedProposal.creator}</Label>
     let renderItems = [];
     if (uiProposals.length > 0) {
-        let ordered = _.orderBy(uiProposals, [
-            function (item) {
-                return item.creationDate;
-            },
-            function (item) {
-                return item.likesCount;
-            }
-        ], ['asc', 'desc']);
-        renderItems = ordered.map((sharedProposal) =>
+        const ordered = orderProposals(uiProposals);
+        renderItems = ordered.map((sharedProposal, index) => {
+            // console.debug(`ProposalToRender=${JSON.stringify(sharedProposal)}`);
+            return (
             <List.Item key={sharedProposal.id}>
                 <br/>
                 <br/>
-                <Image floated={'left'} rounded={true} size={'tiny'} src={imageSkynet}/>
-                <Button.Group size='medium' floated='right'>
-                    <Button
+                <Image floated={'left'} rounded={true} size={'tiny'} src={index % 2 === 0 ? imageSkynet : imageSia}/>
+                <Button floated='right'
                         color={sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey'}
-                        content={isLoggedIn ? 'Great Idea!' : 'Login required'}
-                        icon={sharedProposal.likedByMember && isLoggedIn ? 'thumbs up' : 'thumbs up outline'}
+                        content={isLoggedIn ? 'Like' : 'Login required'}
+                        icon={sharedProposal.likedByMember && isLoggedIn ? 'heart' : 'heart outline'}
                         label={{
                             color: sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey',
-                            circular: true,
                             pointing: 'left',
                             content: sharedProposal.likesCount
                         }}
                         onClick={(event) => handleClick(event, sharedProposal.rawProposal, sharedProposal.header)}
-                        disabled={(props.loggedIn && props.loading) || !props.loggedIn}/>
-                </Button.Group>
+                        disabled={(isLoggedIn && isLoading) || !isLoggedIn}/>
+
                 <List.Content floated='left'>
-                    <List.Header as={'h3'}>{sharedProposal.header}</List.Header>
+                    <List.Header as={'h4'}>{sharedProposal.header}</List.Header>
                     <br/>
                     <List.Content>
-                        <ModalDialog {...props}
-                                     proposalSkylink={sharedProposal.skylink}
-                                     proposalHeader={sharedProposal.header}
-                                     proposalCreationDate={sharedProposal.creationDate}
-                                     proposalCreator={sharedProposal.creator}/>
+                        <ModalDialogFresh proposalSkylink={sharedProposal.skylink}
+                                          proposalCommentsSkylink={sharedProposal.commentsSkylink}
+                                          proposalHeader={sharedProposal.header}
+                                          proposalCreationDate={sharedProposal.creationDate}
+                                          proposalCreator={sharedProposal.creator}
+                                          onDialogCloseAction={handleOnModalClose}/>
                     </List.Content>
                     <br/>
                     <List.Description>
-                        <Label size='mini'>Shared on {sharedProposal.creationDate}</Label>
+                        <Label size='mini'>Shared at {sharedProposal.creationDate}</Label>
                     </List.Description>
                     <br/>
                 </List.Content>
                 <br/>
                 <br/>
             </List.Item>
+            )}
         );
     }
+
     // Prepare pagination pages
     const TOTAL_PAGES = renderItems.length / itemsPerPage;
     renderItems = renderItems.slice(
@@ -139,28 +161,28 @@ const IdeaSharedListSegment = (props) => {
 
 
     // Actual rendering.
-    /* TODO Ordering
-    <Segment>
-        <Button.Group attached={true} vertical={false} size='mini'>
-            <Button compact={true}
-                    onClick={(event) => console.error("NOT IMPLEMENTED")}>
-                Most Popular
-            </Button>
-            <Button.Or/>
-            <Button compact={true} onClick={(event) => console.error("NOT IMPLEMENTED")}>
-                Most Recent
-            </Button>
-        </Button.Group>
-    </Segment>
-     */
     return (
         <>
             <Container>
-                <Divider horizontal>
-                    <Header size='large'>Ideas Shared by the Skynet Community</Header>
-                </Divider>
-                <br/>
-                <SegmentGroup>
+                <Dimmer page active={isLoading}>
+                    <Loader indeterminate={true} active={isLoading} size={'large'}>Working...</Loader>
+                </Dimmer>
+                <SegmentGroup raised size={"small"}>
+
+                    <SearchSegment />
+                    <Segment>
+                        <Button.Group attached={true} vertical={false} size='mini'>
+                            <Button color={!orderByMostPopular ? 'green' : 'grey'} compact={true}
+                                    onClick={(event) => setOrderByMostPopular(false)}>
+                                Order by Most Recent
+                            </Button>
+                            <Button.Or/>
+                            <Button color={orderByMostPopular ? 'green' : 'grey'} compact={true}
+                                    onClick={(event) => setOrderByMostPopular(true)}>
+                                Order By Most Popular
+                            </Button>
+                        </Button.Group>
+                    </Segment>
                     <Segment>
                         <Container textAlign='center'>
                             <Pagination
@@ -204,4 +226,21 @@ const IdeaSharedListSegment = (props) => {
     );
 }
 
-export default IdeaSharedListSegment;
+const mapStateToProps = state => ({
+    proposalRecords: state.proposalRecords,
+    mySkyUserProposalsLiked: state.mySkyUserProposalsLiked,
+    mySkyUserPublicKey: state.mySkyUserPublicKey,
+    mySkyInstance: state.mySkyInstance,
+    isLoggedIn: state.isLoggedIn
+});
+
+const mapDispatchToProps = dispatch => {
+    return {
+        dispatch
+    }
+};
+
+export default connect(
+    mapStateToProps,
+    mapDispatchToProps
+)(IdeaSharedListSegment);
