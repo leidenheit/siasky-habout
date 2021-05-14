@@ -2,7 +2,7 @@ import {
     Button,
     Container, Dimmer,
     Divider,
-    Header,
+    Header, Icon,
     Image,
     Label,
     List, Loader,
@@ -112,51 +112,58 @@ const IdeaSharedListSegment = ({
         renderItems = ordered.map((sharedProposal, index) => {
             // console.debug(`ProposalToRender=${JSON.stringify(sharedProposal)}`);
             return (
-            <List.Item key={sharedProposal.id}>
-                <br/>
-                <br/>
-                <Image floated={'left'} rounded={true} size={'tiny'} src={index % 2 === 0 ? imageSkynet : imageSia}/>
-                <Button floated='right'
-                        color={sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey'}
-                        content={isLoggedIn ? 'Like' : 'Login required'}
-                        icon={sharedProposal.likedByMember && isLoggedIn ? 'heart' : 'heart outline'}
-                        label={{
-                            color: sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey',
-                            pointing: 'left',
-                            content: sharedProposal.likesCount
-                        }}
-                        onClick={(event) => handleClick(event, sharedProposal.rawProposal, sharedProposal.header)}
-                        disabled={(isLoggedIn && isLoading) || !isLoggedIn}/>
 
-                <List.Content floated='left'>
-                    <List.Header as={'h4'}>{sharedProposal.header}</List.Header>
+                <List.Item key={sharedProposal.id}>
                     <br/>
-                    <List.Content>
-                        <ModalDialogFresh proposalSkylink={sharedProposal.skylink}
-                                          proposalCommentsSkylink={sharedProposal.commentsSkylink}
-                                          proposalHeader={sharedProposal.header}
-                                          proposalCreationDate={sharedProposal.creationDate}
-                                          proposalCreator={sharedProposal.creator}
-                                          onDialogCloseAction={handleOnModalClose}/>
+                    {sharedProposal.commentsSkylink !== null &&
+                        <Container>
+                            <Label ribbon basic={true} color={'green'}>Discussed by the Community!</Label>
+                            <br/>
+                        </Container>
+                    }
+                    <br/>
+                    <Image floated={'left'} rounded={true} size={'tiny'} src={index % 2 === 0 ? imageSkynet : imageSia}/>
+                    <Button floated='right'
+                            color={sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey'}
+                            content={isLoggedIn ? 'Like' : 'Login required'}
+                            icon={sharedProposal.likedByMember && isLoggedIn ? 'heart' : 'heart outline'}
+                            label={{
+                                color: sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey',
+                                pointing: 'left',
+                                content: sharedProposal.likesCount
+                            }}
+                            onClick={(event) => handleClick(event, sharedProposal.rawProposal, sharedProposal.header)}
+                            disabled={(isLoggedIn && isLoading) || !isLoggedIn}/>
+
+                    <List.Content floated='left'>
+                        <List.Header as={'h4'}>{sharedProposal.header}</List.Header>
+                        <br/>
+                        <List.Content>
+                            <ModalDialogFresh proposalSkylink={sharedProposal.skylink}
+                                              proposalCommentsSkylink={sharedProposal.commentsSkylink}
+                                              proposalHeader={sharedProposal.header}
+                                              proposalCreationDate={sharedProposal.creationDate}
+                                              proposalCreator={sharedProposal.creator}
+                                              onDialogCloseAction={handleOnModalClose}/>
+                        </List.Content>
+                        <br/>
+                        <List.Description>
+                            <Label size='mini'>Shared at {sharedProposal.creationDate}</Label>
+                        </List.Description>
+                        <br/>
                     </List.Content>
                     <br/>
-                    <List.Description>
-                        <Label size='mini'>Shared at {sharedProposal.creationDate}</Label>
-                    </List.Description>
                     <br/>
-                </List.Content>
-                <br/>
-                <br/>
-            </List.Item>
+                </List.Item>
             )}
-        );
+        )
     }
 
     // Prepare pagination pages
-    const TOTAL_PAGES = renderItems.length / itemsPerPage;
+    const TOTAL_PAGES = Math.ceil(renderItems.length / itemsPerPage);
     renderItems = renderItems.slice(
         (page - 1) * itemsPerPage,
-        (page - 1) * itemsPerPage + itemsPerPage
+        Math.min((((page - 1) * itemsPerPage) + itemsPerPage - 1), renderItems.length)
     );
 
 

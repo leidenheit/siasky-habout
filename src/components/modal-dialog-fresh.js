@@ -14,7 +14,12 @@ import {
 import * as React from "react";
 import {trim} from "lodash";
 import {connect} from "react-redux";
-import {handleShareProposalComment, lazyLoadFromSkylink, readProfileFromPublicKey} from "../utils/skynet-ops";
+import {
+    handleShareProposalComment,
+    lazyLoadFromSkylink,
+    readProfileFromPublicKey,
+    recordInteraction
+} from "../utils/skynet-ops";
 import * as ActionTypes from "../store/action-types";
 import {generateUniqueID} from "web-vitals/dist/modules/lib/generateUniqueID";
 
@@ -138,6 +143,9 @@ const ModalDialogFresh = ({
             console.debug(`${ModalDialogFresh.name}.handleModalTriggerClick:
                 proposalSkylink=${proposalSkylink}
                 commentsSkylink=${commentsSkylink}`);
+            if (proposalSkylink && isLoggedIn) {
+                await recordInteraction(proposalSkylink, 'readMoreAction');
+            }
         } catch (e) {
             console.error(e.message);
         } finally {
@@ -190,8 +198,7 @@ const ModalDialogFresh = ({
                 open={popupIsOpen}
                 trigger={!hideTriggerButton && <Button size={'small'}
                                                        onClick={async () => handleModalTriggerClick(proposalSkylink, proposalCommentsSkylink)}
-                                                       disabled={!isLoggedIn}
-                                                       content={!isLoggedIn ? 'Login required' : 'Read more...'}/>}>
+                                                       content={'More...'}/>}>
 
 
 
