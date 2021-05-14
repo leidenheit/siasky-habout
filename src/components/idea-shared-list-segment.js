@@ -36,7 +36,7 @@ const IdeaSharedListSegment = ({
     const [isLoading, setIsLoading] = React.useState(false);
 
     // Pagination
-    const ITEMS_PER_PAGE = 8;
+    const ITEMS_PER_PAGE = 10;
     const [page, setPage] = React.useState(1);
     const [itemsPerPage] = React.useState(ITEMS_PER_PAGE);
     let setPageNum = (event, {activePage}) => {
@@ -160,10 +160,12 @@ const IdeaSharedListSegment = ({
     }
 
     // Prepare pagination pages
+    const startIndex = (page - 1) * itemsPerPage;
     const TOTAL_PAGES = Math.ceil(renderItems.length / itemsPerPage);
+    const endIndex = Math.min(startIndex + itemsPerPage, renderItems.length);
     renderItems = renderItems.slice(
-        (page - 1) * itemsPerPage,
-        Math.min((((page - 1) * itemsPerPage) + itemsPerPage - 1), renderItems.length)
+        startIndex,
+        endIndex
     );
 
 
@@ -177,6 +179,7 @@ const IdeaSharedListSegment = ({
                 <SegmentGroup raised size={"small"}>
 
                     <SearchSegment />
+                    <Label attached={'top right'}>Total Count: {uiProposals.length ?? 'n/a'}</Label>
                     <Segment>
                         <Button.Group attached={true} vertical={false} size='mini'>
                             <Button color={!orderByMostPopular ? 'green' : 'grey'} compact={true}
