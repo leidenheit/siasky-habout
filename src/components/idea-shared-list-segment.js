@@ -1,8 +1,6 @@
 import {
     Button,
     Container, Dimmer,
-    Divider,
-    Header, Icon,
     Image,
     Label,
     List, Loader,
@@ -125,7 +123,7 @@ const IdeaSharedListSegment = ({
                     <Image floated={'left'} rounded={true} size={'tiny'} src={index % 2 === 0 ? imageSkynet : imageSia}/>
                     <Button floated='right'
                             color={sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey'}
-                            content={isLoggedIn ? 'Like' : 'Login required'}
+                            content={isLoggedIn ? 'Likes' : 'Login required'}
                             icon={sharedProposal.likedByMember && isLoggedIn ? 'heart' : 'heart outline'}
                             label={{
                                 color: sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey',

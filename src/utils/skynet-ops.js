@@ -9,12 +9,9 @@ import {
 } from "./skynet-utils";
 import {
     SET_IS_LOGGED_IN, SET_MYSKY_USER_PROPOSALS_LIKED, SET_MYSKY_USER_PUBLIC_KEY,
-    SET_PROPOSAL_COMMENTS,
-    SET_PROPOSAL_COMMENTS_SKYLINK,
-    SET_PROPOSAL_RECORDS
+    SET_PROPOSAL_COMMENTS_SKYLINK
 } from "../store/action-types";
 import * as ActionTypes from "../store/action-types";
-import {connect} from "react-redux";
 
 // Writes related data to skydb.
 export async function writeJsonToSkyDB(dataKey, toWriteJson) {
@@ -142,6 +139,9 @@ export async function handleMySkyLogout(mySkyInstance, dispatch) {
 // Writes comments of a proposal to SkyDB.
 export async function writeProposalCommentsToSkyDB(proposalRecords, proposalComments, mySkyInstance, dispatch) {
     try {
+        // Fix: force reload before saving in order to not be overridden by older states. Is meh but should work in this hackathon project.
+
+
         const res = await writeJsonToSkyDB(SKAPP_DATA_KEY_COMMENTS, proposalComments);
         console.debug(`Writing proposal comments to SkyDB:\n\tproposalComments=${JSON.stringify(proposalComments)}\n\t->res=${JSON.stringify(res)}`);
         // Tell contentRecord that we commented a proposal
@@ -169,7 +169,7 @@ export async function handleLikeProposal(proposalRecords, proposalsLiked, likedH
 
             dispatch({type: ActionTypes.SET_MYSKY_USER_PROPOSALS_LIKED, payload: proposalsLiked});
             // Skapp
-            const modifiedLikes = likedHowabout.likes + 1
+            const modifiedLikes = likedHowabout.likes <= 0 ? 1 : likedHowabout.likes + 1
             await storeHowAbout(proposalRecords, likedHowabout.skylink, null, modifiedLikes, header, creatorPublicKey, dispatch);
         } else {
             // Remove user's like from MySky and decrease like counter on skapp's SkyDB.
@@ -179,7 +179,7 @@ export async function handleLikeProposal(proposalRecords, proposalsLiked, likedH
             await writeJsonToMySky(mySkyInstance, MYSKY_LIKES_FILE_PATH, filtered);
             dispatch({type: ActionTypes.SET_MYSKY_USER_PROPOSALS_LIKED, payload: filtered});
             // Skapp
-            const modifiedLikes = likedHowabout.likes - 1;
+            const modifiedLikes = likedHowabout.likes <= 0 ? 0 : likedHowabout.likes - 1;
             await storeHowAbout(proposalRecords, likedHowabout.skylink,null, modifiedLikes, header, creatorPublicKey, dispatch);
         }
         // Tell contentRecord that we updated the likes
