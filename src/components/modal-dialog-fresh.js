@@ -76,6 +76,12 @@ const ModalDialogFresh = ({
 
                 if (proposalCommentsSkylink) {
                     const proposalComments = await lazyLoadFromSkylink(proposalCommentsSkylink);
+                    for (let comment of proposalComments) {
+                        const authorProfile = await readProfileFromPublicKey(comment.author);
+                        console.debug(`Preparing comments: modified authorId ${comment.author} into ${authorProfile.username}`);
+                        comment.author = authorProfile?.username ?? 'NOT_PROVIDED';
+                    }
+
                     setLazyLoadedProposalComments(proposalComments);
                 }
             } finally {
