@@ -1,7 +1,6 @@
 import {
     Container,
     Dimmer,
-    Divider,
     Form,
     Header,
     Icon,
@@ -16,7 +15,6 @@ import FileDrop from "./filedrop";
 import {trim} from "lodash/string";
 import {connect} from "react-redux";
 import {handleShareProposal, readProfileFromPublicKey} from "../utils/skynet-ops";
-import SearchSegment from "./search-segment";
 import imageSia from "../assets/sia-logo.svg";
 
 const IdeaSubmitSegment = ({isLoggedIn, proposalRecords, mySkyUserPublicKey, mySkyInstance, dispatch}) => {
@@ -29,18 +27,17 @@ const IdeaSubmitSegment = ({isLoggedIn, proposalRecords, mySkyUserPublicKey, myS
     const [proposalDetailText, setProposalDetailText] = React.useState('');
     const [uploadPreview, setUploadPreview] = React.useState('');
     const [file, setFile] = React.useState('');
-
     const [currentUser, setCurrentUser] = React.useState("Loading Username...");
     const [currentUserAvatar, setCurrentUserAvatar] = React.useState("Loading Avatar...");
 
     React.useEffect( () => {
-        if (isLoggedIn) {
+        if (mySkyUserPublicKey) {
             readProfileFromPublicKey(mySkyUserPublicKey).then((res) => {
                 setCurrentUser(res.username);
                 setCurrentUserAvatar(res.avatar);
             });
         }
-    }, [mySkyUserPublicKey, isLoggedIn])
+    }, [mySkyUserPublicKey])
 
     const handleHeadlineInputChange = (e) => {
         setHeadlineAvailable(trim(e.target.value).length > 0);
