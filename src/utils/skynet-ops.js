@@ -16,10 +16,9 @@ import * as ActionTypes from "../store/action-types";
 // Writes related data to skydb.
 export async function writeJsonToSkyDB(dataKey, toWriteJson) {
     try {
-        return await skynetClient.db.setJSON(SKAPP_PRIVATE_KEY, dataKey, toWriteJson).then((res) => {
-            console.debug(`Writing JSON to SkyDB:\n\tdataKey=${dataKey}\n\ttoWriteJson=${toWriteJson}\n\t->res=${JSON.stringify(res)}`);
-            return res;
-        })
+        const res = await skynetClient.db.setJSON(SKAPP_PRIVATE_KEY, dataKey, toWriteJson);
+        console.debug(`Writing JSON to SkyDB:\n\tdataKey=${dataKey}\n\ttoWriteJson=${JSON.stringify(toWriteJson)}\n\t->res=${JSON.stringify(res)}`);
+        return res;
     } catch (e) {
         console.error(`Error writing data to SkyDB: ${e.message}`);
     }
@@ -28,10 +27,9 @@ export async function writeJsonToSkyDB(dataKey, toWriteJson) {
 // Reads related data from sky db.
 export async function readJsonFromSkyDB(dataKey) {
     try {
-        return await skynetClient.db.getJSON(SKAPP_PUBLIC_KEY, dataKey).then((res) => {
-            console.debug(`Reading JSON from SkyDB():\n\tdataKey=${dataKey}\n\t->res=${JSON.stringify(res)}`);
-            return res;
-        })
+        const res = await skynetClient.db.getJSON(SKAPP_PUBLIC_KEY, dataKey);
+        console.debug(`Reading JSON from SkyDB():\n\tdataKey=${dataKey}\n\t->res=${JSON.stringify(res)}`);
+        return res;
     } catch (e) {
         console.error(`Error reading data from SkyDB: ${e.message}`);
     }
@@ -137,13 +135,9 @@ export async function handleMySkyLogout(mySkyInstance, dispatch) {
 }
 
 // Writes comments of a proposal to SkyDB.
-export async function writeProposalCommentsToSkyDB(proposalRecords, proposalComments, mySkyInstance, dispatch) {
+export async function writeProposalCommentsToSkyDB(proposalComments) {
     try {
-        // Fix: force reload before saving in order to not be overridden by older states. Is meh but should work in this hackathon project.
-
-
         const res = await writeJsonToSkyDB(SKAPP_DATA_KEY_COMMENTS, proposalComments);
-        console.debug(`Writing proposal comments to SkyDB:\n\tproposalComments=${JSON.stringify(proposalComments)}\n\t->res=${JSON.stringify(res)}`);
         // Tell contentRecord that we commented a proposal
         await recordInteraction(res.dataLink, 'commentedAction'); // TODO move to centralized const file.
         return res;
@@ -153,7 +147,7 @@ export async function writeProposalCommentsToSkyDB(proposalRecords, proposalComm
 }
 
 // Handles a user's like/unlike action.
-export async function handleLikeProposal(proposalRecords, proposalsLiked, likedHowabout, header, creatorPublicKey, mySkyInstance, dispatch) {
+export async function handleLikeProposal(proposalsLiked, likedHowabout, header, creatorPublicKey, mySkyInstance, dispatch) {
     try {
         // Determine if the user has liked the first time or unlike a previous one.
         const firstTimeLike = proposalsLiked.findIndex((k) => k.skylink === likedHowabout.skylink) < 0;
@@ -170,7 +164,7 @@ export async function handleLikeProposal(proposalRecords, proposalsLiked, likedH
             dispatch({type: ActionTypes.SET_MYSKY_USER_PROPOSALS_LIKED, payload: proposalsLiked});
             // Skapp
             const modifiedLikes = likedHowabout.likes <= 0 ? 1 : likedHowabout.likes + 1
-            await storeHowAbout(proposalRecords, likedHowabout.skylink, null, modifiedLikes, header, creatorPublicKey, dispatch);
+            await storeHowAbout(likedHowabout.skylink, null, modifiedLikes, header, creatorPublicKey, dispatch);
         } else {
             // Remove user's like from MySky and decrease like counter on skapp's SkyDB.
             console.debug(`Removing like from SkyDB and MySky.`);
@@ -180,7 +174,7 @@ export async function handleLikeProposal(proposalRecords, proposalsLiked, likedH
             dispatch({type: ActionTypes.SET_MYSKY_USER_PROPOSALS_LIKED, payload: filtered});
             // Skapp
             const modifiedLikes = likedHowabout.likes <= 0 ? 0 : likedHowabout.likes - 1;
-            await storeHowAbout(proposalRecords, likedHowabout.skylink,null, modifiedLikes, header, creatorPublicKey, dispatch);
+            await storeHowAbout(likedHowabout.skylink,null, modifiedLikes, header, creatorPublicKey, dispatch);
         }
         // Tell contentRecord that we updated the likes
         await recordInteraction(likedHowabout.skylink, 'updatedLikesAction'); // TODO move to centralized const file.
@@ -190,7 +184,7 @@ export async function handleLikeProposal(proposalRecords, proposalsLiked, likedH
 }
 
 // Dispatch a user's comment action.
-export async function handleShareProposalComment(commentText, comments, proposalSkylink, proposalHeader, proposalCreator, proposalRecords, mySkyUserPublicKey, mySkyInstance, dispatch) {
+export async function handleShareProposalComment(commentText, proposalCommentsSkylink, proposalSkylink, proposalHeader, proposalCreator, mySkyUserPublicKey, mySkyInstance, dispatch) {
     try {
         const commentJson = {
             comment: commentText,
@@ -198,19 +192,19 @@ export async function handleShareProposalComment(commentText, comments, proposal
             creationDate: new Date().toUTCString()
         }
 
-        console.debug(`Sharing proposal comment: comment=${JSON.stringify(commentJson)}`);
+        let comments = await lazyLoadFromSkylink(proposalCommentsSkylink);
+        if (!comments) {
+            comments = [];
+        }
+        console.debug(`Sharing proposal comment: comment=${JSON.stringify(commentJson)} into ${JSON.stringify(comments)}`);
         comments.push(commentJson);
 
-        const resSkylink = await writeProposalCommentsToSkyDB(proposalRecords, comments, mySkyInstance, dispatch);
+        const resSkylink = await writeProposalCommentsToSkyDB(comments, mySkyInstance, dispatch);
         if (resSkylink) {
             const resUpdatedComments = await lazyLoadFromSkylink(resSkylink.dataLink);
-
-
-            const res = await storeHowAbout(proposalRecords, proposalSkylink, resSkylink.dataLink, null, proposalHeader, proposalCreator, dispatch)
+            const res = await storeHowAbout(proposalSkylink, resSkylink.dataLink, null, proposalHeader, proposalCreator, dispatch)
             console.debug(`Updating HowAbouts's comments:\n\t->res=${JSON.stringify(res)}`);
-
             dispatch({type: SET_PROPOSAL_COMMENTS_SKYLINK, payload: resSkylink});
-
             return resUpdatedComments;
         }
     } catch (e) {
@@ -219,7 +213,7 @@ export async function handleShareProposalComment(commentText, comments, proposal
 }
 
 // Handle a user's proposal save action.
-export async function handleShareProposal(proposalRecords, headlineText, detailText, imageFile, creatorPublicKey, mySkyInstance, dispatch) {
+export async function handleShareProposal(headlineText, detailText, imageFile, creatorPublicKey, mySkyInstance, dispatch) {
     try {
         // When provided, upload image of proposal.
         let imageSkylinkUrl = null;
@@ -237,7 +231,7 @@ export async function handleShareProposal(proposalRecords, headlineText, detailT
             imageSkylink: imageSkylinkUrl ?? null
         };
         const res = await writeJsonToMySky(mySkyInstance, MYSKY_PROPOSALS_FILE_PATH, proposal);
-        await storeHowAbout(proposalRecords, res.dataLink,null, 0, headlineText, creatorPublicKey, dispatch);
+        await storeHowAbout(res.dataLink, null, 0, headlineText, creatorPublicKey, dispatch);
         await recordNew(res.dataLink);
     } catch (error) {
         console.error(`Error sharing proposal: ${error.message}`);
@@ -252,7 +246,7 @@ export async function lazyLoadFromSkylink(skylink) {
 }
 
 // Saves a user's how about to skydb.
-export async function storeHowAbout(proposalRecords, howAboutSkylink, commentsSkylink, likes, header, creatorPublicKey, dispatch) {
+export async function storeHowAbout(howAboutSkylink, commentsSkylink, likes, header, creatorPublicKey, dispatch) {
     try {
         const howAboutJson = {
             skylink: howAboutSkylink,
@@ -269,25 +263,29 @@ export async function storeHowAbout(proposalRecords, howAboutSkylink, commentsSk
             howaboutSkylink=${JSON.stringify(howAboutSkylink)}
             likes=${likes}`);
 
-        const index = proposalRecords.howabouts.findIndex(h => h.skylink === howAboutSkylink);
+        // FIX: proposals records must be updated first:
+        const {data} = await readJsonFromSkyDB(SKAPP_DATA_KEY);
+
+        const index = data.howabouts.findIndex(h => h.skylink === howAboutSkylink);
         if (index >= 0) {
-            const old = proposalRecords.howabouts[index];
+            const old = data.howabouts[index];
             howAboutJson.metadata.creationDate = old.metadata.creationDate;
             howAboutJson.metadata.creator = old.metadata.creator;
             howAboutJson.commentsSkylink = commentsSkylink ? commentsSkylink : old.commentsSkylink;
             if (likes === null) {
                 howAboutJson.likes = old.likes;
             }
-            proposalRecords.howabouts[index] = howAboutJson;
+            data.howabouts[index] = howAboutJson;
         } else {
-            proposalRecords.howabouts.push(howAboutJson);
+            data.howabouts.push(howAboutJson);
         }
 
-        return await writeJsonToSkyDB(SKAPP_DATA_KEY, proposalRecords).then((res) => {
-            console.debug(`Stored proposals into SkyDB:\n\t${JSON.stringify(proposalRecords)}`);
-            dispatch({type: ActionTypes.SET_PROPOSAL_RECORDS, payload: proposalRecords});
-            return res;
-        });
+        const res = await writeJsonToSkyDB(SKAPP_DATA_KEY, data);
+        console.debug(`Stored proposals into SkyDB:\n\t${JSON.stringify(res)}`);
+
+        // TODO investigate dispatch({type: ActionTypes.SET_PROPOSAL_RECORDS, payload: res.data});
+
+        return res;
     } catch (e) {
         console.error(`Error saving skapp member to SkyDB: ${e.message}`);
     }

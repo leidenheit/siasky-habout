@@ -16,16 +16,13 @@ import {trim} from "lodash";
 import {connect} from "react-redux";
 import {
     handleShareProposalComment,
-    lazyLoadFromSkylink,
-    readProfileFromPublicKey,
+    lazyLoadFromSkylink, readProfileFromPublicKey,
     recordInteraction
 } from "../utils/skynet-ops";
-import * as ActionTypes from "../store/action-types";
 import {generateUniqueID} from "web-vitals/dist/modules/lib/generateUniqueID";
 
 const ModalDialogFresh = ({
                               isLoggedIn,
-                              proposalRecords,
                               mySkyUserPublicKey,
                               proposalSkylink,
                               proposalCommentsSkylink,
@@ -60,7 +57,7 @@ const ModalDialogFresh = ({
         if (proposalSkylink && proposalCreator) {
             setPopupIsOpen(showDialog);
         }
-    }, [showDialog])
+    }, [showDialog, proposalCreator, proposalSkylink])
 
     // Lazy load content.
     React.useEffect(() => {
@@ -92,7 +89,7 @@ const ModalDialogFresh = ({
         if (proposalSkylink && proposalCreator && popupIsOpen)
             prepareContent(proposalCreator, proposalSkylink);
 
-    }, [popupIsOpen])
+    }, [popupIsOpen, proposalCreator, proposalSkylink, proposalCommentsSkylink])
 
     // Render comments as ui elements when available.
     React.useEffect(() => {
@@ -112,7 +109,6 @@ const ModalDialogFresh = ({
     // Render comments for the UI.
     const renderComments = (comments) => {
         try {
-            setIsLoading(true);
             return comments.map((feed) => {
                 return (
                     <List.Item key={generateUniqueID()}>
@@ -131,8 +127,6 @@ const ModalDialogFresh = ({
             });
         } catch (e) {
             console.error(`Error rendering comments: ${e.message}`);
-        } finally {
-            setIsLoading(false);
         }
     }
 
@@ -145,7 +139,6 @@ const ModalDialogFresh = ({
     // Handle the trigger click event.
     const handleModalTriggerClick = async (proposalSkylink, commentsSkylink) => {
         try {
-            setIsLoading(true);
             console.debug(`${ModalDialogFresh.name}.handleModalTriggerClick:
                 proposalSkylink=${proposalSkylink}
                 commentsSkylink=${commentsSkylink}`);
@@ -154,8 +147,6 @@ const ModalDialogFresh = ({
             }
         } catch (e) {
             console.error(e.message);
-        } finally {
-            setIsLoading(false);
         }
     }
 
@@ -185,9 +176,17 @@ const ModalDialogFresh = ({
     const handlePublishComment = async () => {
         try {
             setIsLoading(true);
-            const res = await handleShareProposalComment(commentText, lazyLoadedProposalComments, proposalSkylink, proposalHeader,
-                mySkyUserPublicKey, proposalRecords, mySkyUserPublicKey, mySkyInstance, dispatch);
-            setLazyLoadedProposalComments(res);
+            const res = await handleShareProposalComment(commentText, proposalCommentsSkylink, proposalSkylink, proposalHeader,
+                mySkyUserPublicKey, mySkyUserPublicKey, mySkyInstance, dispatch);
+            console.debug(`AVa: rescomments=${JSON.stringify(res)}`);
+            if (res) {
+                for (let comment of res) {
+                    const authorProfile = await readProfileFromPublicKey(comment.author);
+                    console.debug(`Preparing comments: modified authorId ${comment?.author} into ${authorProfile?.username}`);
+                    comment.author = authorProfile?.username ?? 'NOT_PROVIDED';
+                }
+                setLazyLoadedProposalComments(res);
+            }
             setCommentText('');
             setContentUpdated(true);
         } finally {
@@ -248,7 +247,7 @@ const ModalDialogFresh = ({
                                         <Form.Button color={"green"} size={'tiny'} floated={'left'}
                                                      content={isLoggedIn ? 'Share Comment' : 'Login required'}
                                                      onClick={async () => handlePublishComment()}
-                                                     disabled={isLoggedIn && !commentAvailable || !isLoggedIn}/>
+                                                     disabled={(isLoggedIn && !commentAvailable) || !isLoggedIn}/>
                                     </Form>
                                 </Container>
                                 <br/>

@@ -60,8 +60,7 @@ const IdeaSubmitSegment = ({isLoggedIn, proposalRecords, mySkyUserPublicKey, myS
     const handleSubmit = async (e) => {
         try {
             setIsLoading(true);
-            await handleShareProposal(proposalRecords,
-                proposalHeadlineText, proposalDetailText, file, mySkyUserPublicKey,
+            await handleShareProposal(proposalHeadlineText, proposalDetailText, file, mySkyUserPublicKey,
                 mySkyInstance, dispatch);
             clearInputs();
 

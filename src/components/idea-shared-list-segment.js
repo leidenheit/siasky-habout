@@ -12,10 +12,11 @@ import imageSkynet from '../assets/skynet-logo.svg'
 import imageSia from '../assets/sia-logo.svg'
 import {generateUniqueID} from "web-vitals/dist/modules/lib/generateUniqueID";
 import {connect} from "react-redux";
-import {handleLikeProposal} from "../utils/skynet-ops";
+import {handleLikeProposal, readJsonFromMySky} from "../utils/skynet-ops";
 import ModalDialogFresh from "./modal-dialog-fresh";
 import React from "react";
 import SearchSegment from "./search-segment";
+import {MYSKY_LIKES_FILE_PATH} from "../utils/skynet-utils";
 
 const IdeaSharedListSegment = ({
                                    proposalRecords,
@@ -75,7 +76,8 @@ const IdeaSharedListSegment = ({
     let handleClick = async (event, raw, header) => {
         try {
             setIsLoading(true);
-            await handleLikeProposal(proposalRecords, mySkyUserProposalsLiked, raw, header, mySkyUserPublicKey, mySkyInstance, dispatch);
+            const likedProposals = await readJsonFromMySky(mySkyInstance, MYSKY_LIKES_FILE_PATH);
+            await handleLikeProposal(likedProposals.data, raw, header, mySkyUserPublicKey, mySkyInstance, dispatch);
         } finally {
             setIsLoading(false);
         }
