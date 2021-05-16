@@ -151,6 +151,7 @@ export async function handleLikeProposal(proposalsLiked, likedHowabout, header, 
     try {
         let res = [];
         // Determine if the user has liked the first time or unlike a previous one.
+        console.debug(`Handling Like Action: currentLikes=${JSON.stringify(proposalsLiked)}`);
         const firstTimeLike = proposalsLiked.findIndex((k) => k.skylink === likedHowabout.skylink) < 0;
         if (firstTimeLike) {
             // Save user's like to MySky and increase like counter on skapp's SkyDB.

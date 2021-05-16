@@ -77,7 +77,7 @@ const IdeaSharedListSegment = ({
         try {
             setIsLoading(true);
             const likedProposals = await readJsonFromMySky(mySkyInstance, MYSKY_LIKES_FILE_PATH);
-            await handleLikeProposal(likedProposals.data, raw, header, mySkyUserPublicKey, mySkyInstance, dispatch);
+            await handleLikeProposal(likedProposals.data ?? [], raw, header, mySkyUserPublicKey, mySkyInstance, dispatch);
         } finally {
             setIsLoading(false);
         }
