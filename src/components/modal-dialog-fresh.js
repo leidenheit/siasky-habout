@@ -178,7 +178,6 @@ const ModalDialogFresh = ({
             setIsLoading(true);
             const res = await handleShareProposalComment(commentText, proposalCommentsSkylink, proposalSkylink, proposalHeader,
                 mySkyUserPublicKey, mySkyUserPublicKey, mySkyInstance, dispatch);
-            console.debug(`AVa: rescomments=${JSON.stringify(res)}`);
             if (res) {
                 for (let comment of res) {
                     const authorProfile = await readProfileFromPublicKey(comment.author);

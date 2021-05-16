@@ -8,7 +8,6 @@ import IdeaSharedListSegment from "./components/idea-shared-list-segment";
 import FooterSegment from "./components/footer-segment";
 import MemberSegment from "./components/member-segment";
 import HeaderSegment from "./components/header-segment";
-import {UserProfileDAC} from "@skynethub/userprofile-library";
 
 // redux
 import {connect} from 'react-redux';
@@ -82,7 +81,7 @@ function App({mySkyInstance,  mySkyUserPublicKey, isLoggedIn, proposalRecords, m
         if (isLoggedIn && mySkyInstance) {
             prepareLikes();
         }
-    }, [isLoggedIn, mySkyInstance]);
+    }, [isLoggedIn, mySkyInstance, dispatch]);
 
     // On initial run, start initialization of MySky.
     useEffect(() => {
@@ -437,7 +436,7 @@ function App({mySkyInstance,  mySkyUserPublicKey, isLoggedIn, proposalRecords, m
 
 
     // Props to pass to the components.
-    const propsSegmentMemberArea = {
+    // const propsSegmentMemberArea = {
         // variables
         // proposalRecords,
         // ideaHeadline,
@@ -466,8 +465,8 @@ function App({mySkyInstance,  mySkyUserPublicKey, isLoggedIn, proposalRecords, m
         // handleLazyLoad,
         // handleCommentAction,
         // saveUserHowAboutToSkapp
-    };
-    const propsSegmentShared = {
+    // };
+    // const propsSegmentShared = {
         // variables
         // proposalRecords,
         // howAboutsLikedByMember,
@@ -488,7 +487,7 @@ function App({mySkyInstance,  mySkyUserPublicKey, isLoggedIn, proposalRecords, m
         // handleLazyLoad,
         // handleCommentAction,
         // saveUserHowAboutToSkapp
-    }
+    // }
 
     // This is the actual layout; not a beauty but it's something :)
     return (

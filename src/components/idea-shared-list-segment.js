@@ -49,7 +49,7 @@ const IdeaSharedListSegment = ({
         if (requiresReload) {
             window.location.reload(true);
         }
-    }, [proposalRecords]);
+    }, []);
 
     // Provide a single list to render with the information of both, every shared proposal and the likes of the user.
     let uiProposals = [];

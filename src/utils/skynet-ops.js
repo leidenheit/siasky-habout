@@ -149,6 +149,7 @@ export async function writeProposalCommentsToSkyDB(proposalComments) {
 // Handles a user's like/unlike action.
 export async function handleLikeProposal(proposalsLiked, likedHowabout, header, creatorPublicKey, mySkyInstance, dispatch) {
     try {
+        let res = [];
         // Determine if the user has liked the first time or unlike a previous one.
         const firstTimeLike = proposalsLiked.findIndex((k) => k.skylink === likedHowabout.skylink) < 0;
         if (firstTimeLike) {
@@ -158,13 +159,11 @@ export async function handleLikeProposal(proposalsLiked, likedHowabout, header, 
             // User
             const likedContent = {skylink: likedHowabout.skylink};
             proposalsLiked.push(likedContent);
-            const res = await writeJsonToMySky(mySkyInstance, MYSKY_LIKES_FILE_PATH, proposalsLiked);
-            dispatch({type: SET_MYSKY_USER_PROPOSALS_LIKED, payload: res.data});
-
-            dispatch({type: ActionTypes.SET_MYSKY_USER_PROPOSALS_LIKED, payload: proposalsLiked});
+            const resLikes = await writeJsonToMySky(mySkyInstance, MYSKY_LIKES_FILE_PATH, proposalsLiked);
+            dispatch({type: SET_MYSKY_USER_PROPOSALS_LIKED, payload: resLikes.data});
             // Skapp
             const modifiedLikes = likedHowabout.likes <= 0 ? 1 : likedHowabout.likes + 1
-            await storeHowAbout(likedHowabout.skylink, null, modifiedLikes, header, creatorPublicKey, dispatch);
+            res = await storeHowAbout(likedHowabout.skylink, null, modifiedLikes, header, creatorPublicKey, dispatch);
         } else {
             // Remove user's like from MySky and decrease like counter on skapp's SkyDB.
             console.debug(`Removing like from SkyDB and MySky.`);
@@ -174,8 +173,9 @@ export async function handleLikeProposal(proposalsLiked, likedHowabout, header, 
             dispatch({type: ActionTypes.SET_MYSKY_USER_PROPOSALS_LIKED, payload: filtered});
             // Skapp
             const modifiedLikes = likedHowabout.likes <= 0 ? 0 : likedHowabout.likes - 1;
-            await storeHowAbout(likedHowabout.skylink,null, modifiedLikes, header, creatorPublicKey, dispatch);
+            res = await storeHowAbout(likedHowabout.skylink,null, modifiedLikes, header, creatorPublicKey, dispatch);
         }
+        dispatch({type: ActionTypes.SET_PROPOSAL_RECORDS, payload: res.data});
         // Tell contentRecord that we updated the likes
         await recordInteraction(likedHowabout.skylink, 'updatedLikesAction'); // TODO move to centralized const file.
     } catch (e) {
@@ -282,9 +282,6 @@ export async function storeHowAbout(howAboutSkylink, commentsSkylink, likes, hea
 
         const res = await writeJsonToSkyDB(SKAPP_DATA_KEY, data);
         console.debug(`Stored proposals into SkyDB:\n\t${JSON.stringify(res)}`);
-
-        // TODO investigate dispatch({type: ActionTypes.SET_PROPOSAL_RECORDS, payload: res.data});
-
         return res;
     } catch (e) {
         console.error(`Error saving skapp member to SkyDB: ${e.message}`);

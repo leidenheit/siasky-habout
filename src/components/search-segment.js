@@ -1,4 +1,4 @@
-import {Header, Search, Segment} from "semantic-ui-react";
+import {Search, Segment} from "semantic-ui-react";
 import {connect} from "react-redux";
 import React from "react";
 import ModalDialogFresh from "./modal-dialog-fresh";
@@ -128,7 +128,7 @@ const SearchSegment = ({isLoggedIn, proposalRecords}) => {
         if (requiresReload) {
             window.location.reload(true);
         }
-    }, [proposalRecords])
+    }, [])
 
 
     // Render

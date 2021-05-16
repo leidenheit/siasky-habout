@@ -1,6 +1,5 @@
 import {createStore} from 'redux';
 import * as ActionTypes from "./action-types";
-import {CLEAR_SUBMIT_PROPOSAL_MASK} from "./action-types";
 
 /**
  * A reducer is just a function that takes two arguments and

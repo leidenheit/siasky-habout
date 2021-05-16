@@ -1,8 +1,8 @@
-import {Button, Container, Divider, Header, Image, Label, Segment, SegmentGroup} from "semantic-ui-react";
+import {Button, Container, Segment, SegmentGroup} from "semantic-ui-react";
 import * as React from "react";
 import IdeaSubmitSegment from "./idea-submit-segment";
 import {connect} from "react-redux";
-import {handleMySkyLogin, handleMySkyLogout, readProfileFromPublicKey} from "../utils/skynet-ops";
+import {handleMySkyLogin, handleMySkyLogout} from "../utils/skynet-ops";
 
 const MemberSegment = ({mySkyInstance, mySkyUserPublicKey, isLoggedIn, dispatch}) => {
 

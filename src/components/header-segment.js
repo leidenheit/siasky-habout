@@ -1,4 +1,4 @@
-import {Card, Container, Divider, Header, Icon, Image, List, Segment} from "semantic-ui-react";
+import {Container, Divider, Header, Image, List, Segment} from "semantic-ui-react";
 import * as React from "react";
 import imageBuiltWithSkynet from '../assets/built-with-skynet.png'
 
