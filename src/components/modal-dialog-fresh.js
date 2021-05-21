@@ -200,7 +200,8 @@ const ModalDialogFresh = ({
                 onClose={() => handleDialogStateIsOpen(false)}
                 onOpen={() => handleDialogStateIsOpen(true)}
                 open={popupIsOpen}
-                trigger={!hideTriggerButton && <Button size={'small'}
+                trigger={!hideTriggerButton && <Button floated={'left'}
+                                                       size={'tiny'}
                                                        onClick={async () => handleModalTriggerClick(proposalSkylink, proposalCommentsSkylink)}
                                                        content={'More...'}/>}>
 
@@ -231,12 +232,12 @@ const ModalDialogFresh = ({
                                 </Segment>
                             }
                             <Segment secondary attached={'bottom'}>
-                                <Header icon={'comments'} content={'Comments by the Community'}
-                                        size={'small'}/>
+                                <Header icon={'comments'} content={'Comments'}
+                                        size={'tiny'}/>
                                 <Container>
                                     <Form>
                                         <Form.TextArea floated={'left'}
-                                                       style={{minHeight: 42}}
+                                                       style={{minHeight: 42, maxHeight: 248, height: 32}}
                                                        placeholder='max. 512 characters'
                                                        maxLength={512}
                                                        required={true}

@@ -3,7 +3,7 @@ import {connect} from "react-redux";
 import React from "react";
 import ModalDialogFresh from "./modal-dialog-fresh";
 
-const SearchSegment = ({isLoggedIn, proposalRecords}) => {
+const SearchSegment = ({proposalRecords}) => {
 
     // Reducer for the actual search.
     function resultReducer(state, action) {
@@ -38,11 +38,6 @@ const SearchSegment = ({isLoggedIn, proposalRecords}) => {
     const [showModal, setShowModal] = React.useState(false);
 
     React.useEffect(() => {
-        /*
-        if (isLoggedIn) {
-            setSearchableItems(prepareSearchElements(proposalRecords.howabouts));
-        }
-         */
         setSearchableItems(prepareSearchElements(proposalRecords.howabouts));
     }, [proposalRecords])
 
@@ -145,7 +140,7 @@ const SearchSegment = ({isLoggedIn, proposalRecords}) => {
                     results={results}
                     value={value}
                     maxLength={100}
-                    placeholder={'Search Ideas'}
+                    placeholder={'Search...'}
                 />
             </Segment>
 

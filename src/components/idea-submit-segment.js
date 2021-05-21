@@ -98,7 +98,7 @@ const IdeaSubmitSegment = ({isLoggedIn, proposalRecords, mySkyUserPublicKey, myS
                                     onChange={handleHeadlineInputChange}
                                     disabled={(isLoggedIn && isLoading) || !isLoggedIn}/>
                                 <Form.TextArea
-                                    style={{minHeight: 100}}
+                                    style={{minHeight: 42, maxHeight: 248, height: 42}}
                                     label='Explain your idea'
                                     placeholder='max. 4096 characters'
                                     maxLength={4096}
@@ -146,7 +146,7 @@ const IdeaSubmitSegment = ({isLoggedIn, proposalRecords, mySkyUserPublicKey, myS
                                         <Icon name={'share alternate'}/>
                                         {isLoading ? "Sharing..." : "Share It!"}
                                     </Form.Button>
-                                    <Label basic pointing={'left'} color={'grey'}>
+                                    <Label basic={true} pointing={'left'} color={'grey'}>
                                         Any submission shared with Skynet is immutable at the moment.
                                     </Label>
                                 </Form.Group>

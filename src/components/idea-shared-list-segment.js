@@ -1,20 +1,9 @@
-import {
-    Button,
-    Container, Dimmer,
-    Image,
-    Label,
-    List, Loader,
-    Pagination,
-    Segment,
-    SegmentGroup
-} from "semantic-ui-react";
-import imageSkynet from '../assets/skynet-logo.svg'
-import imageSia from '../assets/sia-logo.svg'
+import {Button, Container, Dimmer, Label, List, Loader, Pagination, Segment, SegmentGroup} from "semantic-ui-react";
 import {generateUniqueID} from "web-vitals/dist/modules/lib/generateUniqueID";
 import {connect} from "react-redux";
 import {handleLikeProposal, readJsonFromMySky} from "../utils/skynet-ops";
 import ModalDialogFresh from "./modal-dialog-fresh";
-import React from "react";
+import React, {useState} from "react";
 import SearchSegment from "./search-segment";
 import {MYSKY_LIKES_FILE_PATH} from "../utils/skynet-utils";
 
@@ -31,8 +20,55 @@ const IdeaSharedListSegment = ({
     const _ = require("lodash");
 
     // Given
-    const [orderByMostPopular, setOrderByMostPopular] = React.useState(false);
+    const [orderByMostPopular, setOrderByMostPopular] = React.useState(true);
     const [isLoading, setIsLoading] = React.useState(false);
+    // const [proposals, setProposals] = React.useState(proposalRecords);
+
+    const [uiProposals, setUiProposals] = useState([]);
+    const [renderItems, setRenderItems] = useState([]);
+    const [slicedRenderItems, setSlicedRenderItems] = useState(renderItems);
+    // const [userPublicKeys, setUserPublicKeys] = useState(null);
+    React.useEffect(() => {
+        const prepareContent = async () => {
+            return await prepareProposalsForUi(proposalRecords);
+        }
+
+        if (proposalRecords?.howabouts && proposalRecords.howabouts.length > 0) {
+            prepareContent().then((res) => {
+                setUiProposals(res);
+            });
+        }
+    }, [proposalRecords, orderByMostPopular]);
+
+    // Rendering of the list content.
+    React.useEffect(() => {
+        /*
+        const readUserNames = async (proposals) => {
+            let publickeys = {};
+            for(let proposal of proposals) {
+                // extract public key
+                // console.debug(`AVa: currentprop=${JSON.stringify(proposal)}`);
+                if (proposal.creator) {
+                    const x = proposal.creator;
+                    if (!(x in publickeys)) {
+                        // console.debug(`AVa: public key added -> pk=${JSON.stringify(x)}`);
+                        const authorProfile = await readProfileFromPublicKey(proposal.creator);
+                        // console.debug(`AVa: Preparing list entry: modified authorId ${proposal.author} into ${authorProfile?.username}`);
+                        const author = authorProfile?.username ?? 'NOT_PROVIDED';
+                        // console.debug(`AVa: ! -> x=${JSON.stringify(x)}; author=${JSON.stringify(author)}`);
+                        publickeys[x] = author;
+                    } else {
+                        // console.debug(`AVa: public key added -> pk=${JSON.stringify(x)}`);
+                    }
+                }
+            }
+            setUserPublicKeys(publickeys);
+        }
+         */
+        if (uiProposals) {
+            renderContent(uiProposals);
+        }
+    }, [uiProposals, isLoggedIn])
 
     // Pagination
     const ITEMS_PER_PAGE = 10;
@@ -52,23 +88,31 @@ const IdeaSharedListSegment = ({
     }, []);
 
     // Provide a single list to render with the information of both, every shared proposal and the likes of the user.
-    let uiProposals = [];
-    if (proposalRecords?.howabouts) {
-        for (const proposal of proposalRecords?.howabouts) {
-            const matchingProposalThatWasLiked = mySkyUserProposalsLiked.findIndex(likedByMemberProposal =>
-                likedByMemberProposal.skylink === proposal.skylink) >= 0;
-            const uiProposal = {
-                id: generateUniqueID(),
-                skylink: proposal.skylink,
-                commentsSkylink: proposal.commentsSkylink ?? null,
-                likesCount: proposal.likes ?? "NOT_PROVIDED",
-                header: proposal.metadata?.header ?? "NOT_PROVIDED",
-                creator: proposal.metadata?.creator ?? "NOT_PROVIDED", // TODO consider retrieving userprofile here
-                creationDate: proposal.metadata?.creationDate ?? "NOT_PROVIDED",
-                likedByMember: matchingProposalThatWasLiked,
-                rawProposal: proposal,
-            };
-            uiProposals.push(uiProposal);
+    const prepareProposalsForUi = async (proposals) => {
+        try {
+            setIsLoading(true);
+            let res = [];
+            if (proposals?.howabouts) {
+                for (const proposal of proposals?.howabouts) {
+                    const matchingProposalThatWasLiked = mySkyUserProposalsLiked.findIndex(likedByMemberProposal =>
+                        likedByMemberProposal.skylink === proposal.skylink) >= 0;
+                    const uiProposal = {
+                        id: generateUniqueID(),
+                        skylink: proposal.skylink,
+                        commentsSkylink: proposal.commentsSkylink ?? null,
+                        likesCount: proposal.likes ?? "NOT_PROVIDED",
+                        header: proposal.metadata?.header ?? "NOT_PROVIDED",
+                        creator: proposal.metadata?.creator.substr(1, 8) + "..." ?? "NOT_PROVIDED",
+                        creationDate: proposal.metadata?.creationDate ?? "NOT_PROVIDED",
+                        likedByMember: matchingProposalThatWasLiked,
+                        rawProposal: proposal,
+                    };
+                    res.push(uiProposal);
+                }
+            }
+            return res;
+        } finally {
+            setIsLoading(false);
         }
     }
 
@@ -90,8 +134,14 @@ const IdeaSharedListSegment = ({
             return _.orderBy(toOrderProposals, [
                 function (item) {
                     return item.likesCount;
+                },
+                function (item) {
+                    return item.commentsSkylink !== null
+                },
+                function (item) {
+                    return item.header
                 }
-            ], ['desc']);
+            ], ['desc', 'desc', 'asc']);
         } else {
             // most recent
             return _.orderBy(toOrderProposals, [
@@ -100,74 +150,86 @@ const IdeaSharedListSegment = ({
                 },
                 function (item) {
                     return item.likesCount;
+                },
+                function (item) {
+                    return item.header
                 }
-            ], ['desc', 'desc']);
+            ], ['desc', 'desc', 'asc']);
         }
     }
 
     // Prepare items for rendering.
-    let renderItems = [];
-    if (uiProposals.length > 0) {
-        const ordered = orderProposals(uiProposals);
-        renderItems = ordered.map((sharedProposal, index) => {
-            // console.debug(`ProposalToRender=${JSON.stringify(sharedProposal)}`);
-            return (
-
-                <List.Item key={sharedProposal.id}>
-                    <br/>
-                    {sharedProposal.commentsSkylink !== null &&
+    const [totalPages, setTotalPages] = useState(0);
+    const renderContent = async (toRenderElements) => {
+        try {
+            setIsLoading(true);
+            const ordered = orderProposals(toRenderElements);
+            const res = ordered.map((sharedProposal, index) => {
+                return (
+                    <List.Item key={sharedProposal.id}>
+                        {sharedProposal.commentsSkylink !== null &&
                         <Container>
-                            <Label ribbon basic={true} color={'green'}>Discussed by the Community!</Label>
+                            <Label ribbon image size={'tiny'} color={'green'} icon={'group'}
+                                   content={'Discussed by the Community!'}/>
+                            <br/>
                             <br/>
                         </Container>
-                    }
-                    <br/>
-                    <Image floated={'left'} rounded={true} size={'tiny'} src={index % 2 === 0 ? imageSkynet : imageSia}/>
-                    <Button floated='right'
-                            color={sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey'}
-                            content={isLoggedIn ? 'Likes' : 'Login required'}
-                            icon={sharedProposal.likedByMember && isLoggedIn ? 'heart' : 'heart outline'}
-                            label={{
-                                color: sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey',
-                                pointing: 'left',
-                                content: sharedProposal.likesCount
-                            }}
-                            onClick={(event) => handleClick(event, sharedProposal.rawProposal, sharedProposal.header)}
-                            disabled={(isLoggedIn && isLoading) || !isLoggedIn}/>
+                        }
+                        <List.Content floated='left'>
+                            <List.Header as={'h4'}>{sharedProposal.header}</List.Header>
+                            <List.Content>
+                                <List.Description>
+                                    <Label size='mini'>
+                                        Shared by {sharedProposal.creator}
+                                        <Label.Detail>{sharedProposal.creationDate}</Label.Detail>
+                                    </Label>
+                                    <br/>
+                                    <br/>
+                                    <Button size={'tiny'} floated='left'
+                                            color={sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey'}
+                                            content={isLoggedIn ? 'Likes' : 'Login required'}
+                                            icon={sharedProposal.likedByMember && isLoggedIn ? 'heart' : 'heart outline'}
+                                            label={{
+                                                color: sharedProposal.likedByMember && isLoggedIn ? 'green' : 'grey',
+                                                pointing: 'right',
+                                                content: sharedProposal.likesCount
+                                            }}
+                                            labelPosition={'left'}
+                                            onClick={(event) => handleClick(event, sharedProposal.rawProposal, sharedProposal.header)}
+                                            disabled={(isLoggedIn && isLoading) || !isLoggedIn}/>
+                                    <ModalDialogFresh proposalSkylink={sharedProposal.skylink}
+                                                      proposalCommentsSkylink={sharedProposal.commentsSkylink}
+                                                      proposalHeader={sharedProposal.header}
+                                                      proposalCreationDate={sharedProposal.creationDate}
+                                                      proposalCreator={sharedProposal.creator}
+                                                      onDialogCloseAction={handleOnModalClose}/>
 
-                    <List.Content floated='left'>
-                        <List.Header as={'h4'}>{sharedProposal.header}</List.Header>
-                        <br/>
-                        <List.Content>
-                            <ModalDialogFresh proposalSkylink={sharedProposal.skylink}
-                                              proposalCommentsSkylink={sharedProposal.commentsSkylink}
-                                              proposalHeader={sharedProposal.header}
-                                              proposalCreationDate={sharedProposal.creationDate}
-                                              proposalCreator={sharedProposal.creator}
-                                              onDialogCloseAction={handleOnModalClose}/>
+                                    <br/>
+                                    <br/>
+                                </List.Description>
+                            </List.Content>
                         </List.Content>
                         <br/>
-                        <List.Description>
-                            <Label size='mini'>Shared at {sharedProposal.creationDate}</Label>
-                        </List.Description>
                         <br/>
-                    </List.Content>
-                    <br/>
-                    <br/>
-                </List.Item>
-            )}
-        )
+                    </List.Item>
+                )
+            });
+            setRenderItems(res);
+        } finally {
+            setIsLoading(false);
+        }
     }
 
-    // Prepare pagination pages
-    const startIndex = (page - 1) * itemsPerPage;
-    const TOTAL_PAGES = Math.ceil(renderItems.length / itemsPerPage);
-    const endIndex = Math.min(startIndex + itemsPerPage, renderItems.length);
-    renderItems = renderItems.slice(
-        startIndex,
-        endIndex
-    );
-
+    // Pagination of rendered items.
+    React.useEffect(() => {
+        const startIndex = (page - 1) * itemsPerPage;
+        setTotalPages(Math.ceil(renderItems.length / itemsPerPage));
+        const endIndex = Math.min(startIndex + itemsPerPage, renderItems.length);
+        setSlicedRenderItems(renderItems.slice(
+            startIndex,
+            endIndex
+        ));
+    }, [renderItems, page]);
 
     // Actual rendering.
     return (
@@ -176,55 +238,56 @@ const IdeaSharedListSegment = ({
                 <Dimmer page active={isLoading}>
                     <Loader indeterminate={true} active={isLoading} size={'large'}>Working...</Loader>
                 </Dimmer>
+                <Label attached={'top right'}>Total Count: {uiProposals.length ?? 'n/a'}</Label>
                 <SegmentGroup raised size={"small"}>
-
-                    <SearchSegment />
-                    <Label attached={'top right'}>Total Count: {uiProposals.length ?? 'n/a'}</Label>
+                    <SearchSegment/>
                     <Segment>
-                        <Button.Group attached={true} vertical={false} size='mini'>
-                            <Button color={!orderByMostPopular ? 'green' : 'grey'} compact={true}
-                                    onClick={(event) => setOrderByMostPopular(false)}>
-                                Order by Most Recent
-                            </Button>
-                            <Button.Or/>
+                        <Button.Group attached={"left"} vertical={true} labeled={true} size='mini' fluid={true}>
                             <Button color={orderByMostPopular ? 'green' : 'grey'} compact={true}
-                                    onClick={(event) => setOrderByMostPopular(true)}>
-                                Order By Most Popular
-                            </Button>
+                                    onClick={(event) => {
+                                        setOrderByMostPopular(true);
+                                        setPage(1)
+                                    }}
+                                    icon={'fire'}
+                                    labelPosition={"left"}
+                                    content='Order By Most Popular'/>
+                            <Button color={!orderByMostPopular ? 'green' : 'grey'} compact={true}
+                                    onClick={(event) => {
+                                        setOrderByMostPopular(false);
+                                        setPage(1)
+                                    }}
+                                    icon={'calendar outline'}
+                                    labelPosition={"left"}
+                                    content='Order by Most Recent'/>
                         </Button.Group>
-                    </Segment>
-                    <Segment>
-                        <Container textAlign='center'>
+                        <br/>
+                        <Container textAlign='left'>
                             <Pagination
-                                pointing
                                 secondary
-                                firstItem={null}
-                                lastItem={null}
-                                activePage={page}
-                                totalPages={TOTAL_PAGES}
+                                boundaryRange={0}
                                 siblingRange={1}
+                                activePage={page}
+                                totalPages={totalPages}
                                 onPageChange={setPageNum}/>
                         </Container>
                     </Segment>
                     <Segment>
                         <Container textAlign='justified'>
-                            <List size='large'
-                                  items={renderItems}
+                            <List size='massive'
+                                  items={slicedRenderItems}
                                   divided={true}
-                                  animated={true}
-                                  verticalAlign='top'/>
+                                  verticalAlign='top'
+                                  selection={false}/>
                         </Container>
                     </Segment>
                     <Segment>
-                        <Container textAlign='center'>
+                        <Container textAlign='left'>
                             <Pagination
-                                pointing
                                 secondary
-                                firstItem={null}
-                                lastItem={null}
-                                activePage={page}
-                                totalPages={TOTAL_PAGES}
+                                boundaryRange={0}
                                 siblingRange={1}
+                                activePage={page}
+                                totalPages={totalPages}
                                 onPageChange={setPageNum}/>
                         </Container>
                     </Segment>

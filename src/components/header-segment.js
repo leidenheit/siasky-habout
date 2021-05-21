@@ -8,14 +8,19 @@ const HeaderSegment = () => {
             <Segment>
                 <Container textAlign='left' floated='right'>
                     <Image spaced={'right'} floated={'left'} size={'small'} src={imageBuiltWithSkynet}/>
-                    <Header size='huge'>Share Skapp Ideas - The Decentralized Way</Header>
-                    <br/>
+                    <Header size='huge'>
+                        HAS - How About Skapp?
+                        <Header.Subheader>Share, Vote and Discuss - The decentralized Way</Header.Subheader>
+                    </Header>
                     <Divider horizontal>
                         <Header as='h4'>
                             <List size={'mini'} horizontal={true}>
-                                <List.Item icon='users' header={<a href='https://discord.com/invite/skynetlabs'>Skynet Labs Community</a>}/>
+                                <List.Item icon='users'
+                                           header={<a href='https://discord.com/invite/skynetlabs'>Skynet Labs
+                                               Community</a>}/>
                                 <List.Item icon='code'
-                                           header={<a href='https://github.com/SkynetHQ/Skynet-Hive/issues/6'>Hackathon - Built To Explore - A Dream Of The Future</a>}
+                                           header={<a href='https://github.com/SkynetHQ/Skynet-Hive/issues/6'>Hackathon
+                                               - Built To Explore - A Dream Of The Future</a>}
                                 />
                             </List>
                         </Header>

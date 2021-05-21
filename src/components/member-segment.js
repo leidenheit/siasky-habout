@@ -4,7 +4,7 @@ import IdeaSubmitSegment from "./idea-submit-segment";
 import {connect} from "react-redux";
 import {handleMySkyLogin, handleMySkyLogout} from "../utils/skynet-ops";
 
-const MemberSegment = ({mySkyInstance, mySkyUserPublicKey, isLoggedIn, dispatch}) => {
+const MemberSegment = ({mySkyInstance, isLoggedIn, dispatch}) => {
 
     return (
         <>
