@@ -1,4 +1,4 @@
-Share and Rate Skapp Ideas - The Decentralized Way 
+Share, Vote and Comment on Proposals for the decentralized Skynet Ecosystem 
 --------------------------------------------------
 ---
 *Designed and developed during the [SkynetLabs Hackathon](https://github.com/SkynetLabs/Skynet-Hive/issues/6)*

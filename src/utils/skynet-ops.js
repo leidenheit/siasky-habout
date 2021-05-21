@@ -66,7 +66,11 @@ export async function recordNew(skylink) {
     try {
         console.debug(`Recording new content:\n\tskylink=${JSON.stringify(skylink)}`);
         return await contentRecord.recordNewContent({
-            skylink: skylink
+            skylink: skylink,
+            metadata: {
+                content: { link: "https://siasky.net/" + skylink},
+                description: "new proposal"
+            }
         });
     } catch (e) {
         console.error(`Error recording new content: ${e.message}`);
@@ -232,8 +236,8 @@ export async function handleShareProposal(headlineText, detailText, imageFile, c
             imageSkylink: imageSkylinkUrl ?? null
         };
         const res = await writeJsonToMySky(mySkyInstance, MYSKY_PROPOSALS_FILE_PATH, proposal);
-        await storeHowAbout(res.dataLink, null, 0, headlineText, creatorPublicKey, dispatch);
         await recordNew(res.dataLink);
+        await storeHowAbout(res.dataLink, null, 0, headlineText, creatorPublicKey, dispatch);
     } catch (error) {
         console.error(`Error sharing proposal: ${error.message}`);
     }
