@@ -102,7 +102,7 @@ const IdeaSharedListSegment = ({
                         commentsSkylink: proposal.commentsSkylink ?? null,
                         likesCount: proposal.likes ?? "NOT_PROVIDED",
                         header: proposal.metadata?.header ?? "NOT_PROVIDED",
-                        creator: proposal.metadata?.creator.substr(1, 8) + "..." ?? "NOT_PROVIDED",
+                        creator: proposal.metadata?.creator ?? "NOT_PROVIDED",
                         creationDate: proposal.metadata?.creationDate ?? "NOT_PROVIDED",
                         likedByMember: matchingProposalThatWasLiked,
                         rawProposal: proposal,
@@ -180,7 +180,7 @@ const IdeaSharedListSegment = ({
                             <List.Content>
                                 <List.Description>
                                     <Label size='mini'>
-                                        Shared by {sharedProposal.creator}
+                                        Shared by {sharedProposal.creator.substr(1, 8) + "..."}
                                         <Label.Detail>{sharedProposal.creationDate}</Label.Detail>
                                     </Label>
                                     <br/>
